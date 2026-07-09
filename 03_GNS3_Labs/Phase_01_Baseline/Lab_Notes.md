@@ -25,12 +25,12 @@ status: "in-progress"
 config system interface
     edit port1
         set mode dhcp
-        set allowaccess ping https ssh
+        set allowaccess ping
     next
     edit port2
         set mode static
         set ip 10.0.1.1 255.255.255.0
-        set allowaccess ping https ssh http
+        set allowaccess ping https ssh
     next
 end
 
