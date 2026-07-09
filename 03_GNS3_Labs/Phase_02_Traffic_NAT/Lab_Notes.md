@@ -10,7 +10,22 @@ status: "todo"
 
 ## 🛠️ CLI Configuration Commands
 
-### Outbound LAN to WAN Access Policy
+### Outbound Source NAT (IP Pool)
+
+Define a dynamic overload IP Pool for outbound LAN traffic. This allows multiple LAN clients to share a range of public IPs when accessing the Internet.
+
+```fortinet
+config firewall ippool
+    edit "HQ_WAN_IP_Pool"
+        set startip 192.168.122.200
+        set endip 192.168.122.210
+        set type overload
+        set comment "Dynamic overload pool for LAN-to-Internet SNAT"
+    next
+end
+```
+
+### Outbound LAN to WAN Access Policy (with IP Pool SNAT)
 ```fortinet
 config firewall policy
     edit 1
@@ -22,6 +37,8 @@ config firewall policy
         set dstaddr "all"
         set schedule "always"
         set service "ALL"
+        set ippool enable
+        set poolname "HQ_WAN_IP_Pool"
         set nat enable
     next
 end
