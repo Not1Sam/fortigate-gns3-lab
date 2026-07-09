@@ -71,4 +71,49 @@ config firewall policy
         set service "HTTP"
     next
 end
-```\n
+```
+
+## 🔍 Lab Verification Protocols
+
+### Testing Outbound Source NAT (IP Pool)
+
+**From a LAN client VM (Alpine Webterm on port2):**
+
+1. Generate outbound traffic to verify SNAT is working:
+   ```bash
+   ping 8.8.8.8
+   wget -q -O- http://example.com
+   ```
+
+2. On the FortiGate, verify the session is translated using the IP Pool:
+   ```bash
+   diagnose firewall session list
+   ```
+   Expected output should show `src=192.168.122.200-210` (from the IP Pool range) instead of the LAN client's original IP.
+
+3. Alternatively, capture traffic on the WAN interface to confirm source IP translation:
+   ```bash
+   diagnose sniffer packet port1 'host 8.8.8.8' 4
+   ```
+
+### Testing Inbound Destination NAT (VIP)
+
+**From a WAN client node:**
+
+1. Query the external VIP address from a WAN-connected device:
+   ```bash
+   curl http://192.168.122.150
+   ```
+   Expected: Response from the DMZ web server at 10.0.2.100.
+
+2. Verify the session on the FortiGate shows proper DNAT translation:
+   ```bash
+   diagnose firewall session list | grep 192.168.122.150
+   ```
+   Expected: Session shows destination translated to `10.0.2.100:80`.
+
+3. Test HTTP connectivity end-to-end:
+   ```bash
+   curl -v http://192.168.122.150
+   ```
+   Verify the response headers and body from the DMZ web server.\n
