@@ -74,11 +74,11 @@
 | OCI-02 | Phase 3 | Pending |
 | OCI-03 | Phase 3 | Pending |
 | OCI-04 | Phase 3 | Pending |
-| VPN-01 | Phase 1 | Pending |
+| VPN-01 | Phase 2 | Pending |
 | VPN-02 | Phase 3 | Pending |
-| VPN-03 | Phase 3 | Pending |
-| SEC-01 | Phase 4 | Pending |
-| SEC-02 | Phase 4 | Pending |
+| VPN-03 | Phase 4 | Pending |
+| SEC-01 | Phase 5 | Pending |
+| SEC-02 | Phase 5 | Pending |
 | SEC-03 | Phase 4 | Pending |
 | OPS-01 | Phase 1 | Pending |
 
