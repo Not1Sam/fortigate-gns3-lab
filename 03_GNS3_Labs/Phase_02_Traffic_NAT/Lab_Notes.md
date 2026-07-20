@@ -3,33 +3,31 @@ title: "Phase 02: Traffic Control & NAT"
 tags:
   - lab/policy
   - lab/nat
-status: "todo"
+status: "draft"
 ---
 
-# 🛡️ Phase 02: Traffic Control & NAT Policies
+# Phase 02: Traffic Control & NAT Policies
 
-## 🛠️ CLI Configuration Commands
+> **Note:** Updated for current dual-FGT topology (July 20 redesign). Old version referenced DMZ subnet (10.0.2.0/24) and port3→port3 DNAT — no DMZ exists in current design; App Server is on LAN1.
 
-### Outbound Source NAT (IP Pool)
-
-Define a dynamic overload IP Pool for outbound LAN traffic. This allows multiple LAN clients to share a range of public IPs when accessing the Internet.
+## Outbound Source NAT (IP Pool)
 
 ```fortinet
 config firewall ippool
-    edit "HQ_WAN_IP_Pool"
+    edit "WAN_IP_Pool"
         set startip 192.168.122.200
         set endip 192.168.122.210
         set type overload
-        set comment "Dynamic overload pool for LAN-to-Internet SNAT"
     next
 end
 ```
 
-### Outbound LAN to WAN Access Policy (with IP Pool SNAT)
+### Policy 1: LAN1 → WAN (on FGT-Primary)
+
 ```fortinet
 config firewall policy
     edit 1
-        set name "LAN_to_Internet"
+        set name "LAN1_to_WAN"
         set srcintf "port2"
         set dstintf "port1"
         set action accept
@@ -38,82 +36,62 @@ config firewall policy
         set schedule "always"
         set service "ALL"
         set ippool enable
-        set poolname "HQ_WAN_IP_Pool"
+        set poolname "WAN_IP_Pool"
         set nat enable
     next
 end
 ```
 
-### Creating Virtual IP (VIP) for Destination NAT
+### Policy 1: LAN2 → WAN (on FGT-Secondary)
+
+Same config substituting `port2` LAN2 IPs scope.
+
+## Inbound DNAT (Virtual IP)
+
+App Server is at `192.168.10.10:80` on OVS-LAN1 behind FGT-Primary:
+
 ```fortinet
 config firewall vip
-    edit "DMZ_Web_Server"
+    edit "App_Server_HTTP"
         set extip 192.168.122.150
         set extport 80
-        set mappedip 10.0.2.100
+        set mappedip 192.168.10.10
         set mappedport 80
         set portforward enable
     next
 end
 ```
 
-### Directing Incoming Traffic to DMZ Server
+### Inbound Policy (port1 → port2)
+
 ```fortinet
 config firewall policy
     edit 2
-        set name "Publish_DMZ_Web"
+        set name "WAN_to_App_Server"
         set srcintf "port1"
-        set dstintf "port3"
+        set dstintf "port2"
         set action accept
         set srcaddr "all"
-        set dstaddr "DMZ_Web_Server"
+        set dstaddr "App_Server_HTTP"
         set schedule "always"
         set service "HTTP"
     next
 end
 ```
 
-## 🔍 Lab Verification Protocols
+> **Note:** This consumes policy slot 2 of 3. Slot 3 is reserved for IPsec (LAN1↔LAN2 cross-FGT) or management.
 
-### Testing Outbound Source NAT (IP Pool)
+## Verification
 
-**From a LAN client VM (Alpine Webterm on port2):**
+```bash
+# On FortiGate
+diagnose firewall session list | grep 192.168.122.150
+diagnose sniffer packet port1 'port 80' 4
 
-1. Generate outbound traffic to verify SNAT is working:
-   ```bash
-   ping 8.8.8.8
-   wget -q -O- http://example.com
-   ```
+# From WAN side (NAT1 or OCI)
+curl http://192.168.122.150
 
-2. On the FortiGate, verify the session is translated using the IP Pool:
-   ```bash
-   diagnose firewall session list
-   ```
-   Expected output should show `src=192.168.122.200-210` (from the IP Pool range) instead of the LAN client's original IP.
-
-3. Alternatively, capture traffic on the WAN interface to confirm source IP translation:
-   ```bash
-   diagnose sniffer packet port1 'host 8.8.8.8' 4
-   ```
-
-### Testing Inbound Destination NAT (VIP)
-
-**From a WAN client node:**
-
-1. Query the external VIP address from a WAN-connected device:
-   ```bash
-   curl http://192.168.122.150
-   ```
-   Expected: Response from the DMZ web server at 10.0.2.100.
-
-2. Verify the session on the FortiGate shows proper DNAT translation:
-   ```bash
-   diagnose firewall session list | grep 192.168.122.150
-   ```
-   Expected: Session shows destination translated to `10.0.2.100:80`.
-
-3. Test HTTP connectivity end-to-end:
-   ```bash
-   curl -v http://192.168.122.150
-   ```
-   Verify the response headers and body from the DMZ web server.\n
+# From LAN client
+ping 8.8.8.8
+diagnose firewall session list | grep 8.8.8.8
+```

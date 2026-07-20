@@ -1,36 +1,87 @@
 ---
-title: "Phase 04: VPN & Authentication"
+title: "Phase 04: VPN & Remote Access"
 tags:
   - lab/vpn
   - lab/auth
-status: "todo"
+status: "draft"
 ---
 
-# 🌐 Phase 04: Remote Access (IPSec, SSL VPN, LDAP)
+# Phase 04: Remote Access (IPsec VPN, SSL VPN)
 
-## 🛠️ CLI Configuration Commands
+> **Note:** Updated for current dual-FGT topology. LDAP/AD authentication removed per architecture decision (no LDAP server in current design). IPsec VPN is between FGT-Primary (LAN1) and FGT-Secondary (LAN2).
 
-### LDAP Directory Integration
+## IPsec Site-to-Site VPN — FGT-Primary
+
 ```fortinet
-config user ldap
-    edit "AD_Directory"
-        set server "10.0.1.250"
-        set cnid "sAMAccountName"
-        set dn "dc=enterprise,dc=local"
-        set type regular
-        set username "cn=fgtbind,cn=users,dc=enterprise,dc=local"
-        set password "SecretPassword123"
+config vpn ipsec phase1-interface
+    edit "to-LAN2"
+        set interface port1
+        set ike-version 2
+        set peertype any
+        set net-device enable
+        set proposal aes128-sha1
+        set remote-gw 192.168.122.x  (FGT-Secondary WAN IP)
+        set psksecret changeme
+    next
+end
+
+config vpn ipsec phase2-interface
+    edit "to-LAN2-p2"
+        set phase1name "to-LAN2"
+        set proposal aes128-sha1
+        set src-subnet 192.168.10.0 255.255.255.0
+        set dst-subnet 192.168.20.0 255.255.255.0
     next
 end
 ```
 
-### SSL VPN Split Tunneling Config
+## IPsec Site-to-Site VPN — FGT-Secondary
+
 ```fortinet
-config vpn ssl web portal
-    edit "tunnel-access"
-        set tunnel-mode enable
-        set split-tunneling enable
-        set split-tunneling-routing-address "HQ-Subnets"
+config vpn ipsec phase1-interface
+    edit "to-LAN1"
+        set interface port1
+        set ike-version 2
+        set peertype any
+        set net-device enable
+        set proposal aes128-sha1
+        set remote-gw 192.168.122.y  (FGT-Primary WAN IP)
+        set psksecret changeme
     next
 end
-```\n
+
+config vpn ipsec phase2-interface
+    edit "to-LAN1-p2"
+        set phase1name "to-LAN1"
+        set proposal aes128-sha1
+        set src-subnet 192.168.20.0 255.255.255.0
+        set dst-subnet 192.168.10.0 255.255.255.0
+    next
+end
+```
+
+## IPsec Policy (slots 2 or 3)
+
+This consumes a policy slot. After SNAT (slot 1) and IPsec (slot 2), one slot remains.
+
+```fortinet
+config firewall policy
+    edit 2
+        set name "IPsec_LAN1_to_LAN2"
+        set srcintf "port2"
+        set dstintf "port1"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "all"
+        set schedule "always"
+        set service "ALL"
+    next
+end
+```
+
+## Verification
+
+```fortinet
+diagnose vpn ike gateway list
+diagnose vpn tunnel list
+```

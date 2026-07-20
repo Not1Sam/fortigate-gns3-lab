@@ -30,7 +30,7 @@ This note outlines the draft structure for your final internship submission. Use
 *   **Traffic Translation (SNAT & DNAT)**: Configuration and trace snippets.
 *   **SSL Deep Inspection & Profiles**: CA deployment and UTM logs.
 *   **IPSec & SSL VPNs**: Security negotiations and client pings.
-*   **Centralized Logging**: FortiAnalyzer logs and charts.
+*   **Centralized Logging**: Syslog receiver (Alpine + socat) and Grafana/Prometheus monitoring stack.
 
 ### 5. Security Recommendations & Hardening
 *   Administrative hardening (Trusted Hosts, disabled protocols).

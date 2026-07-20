@@ -29,4 +29,4 @@ tags:
 
 *   **SSL Certificate Inspection (Léger)**: Lit uniquement le champ SNI (Server Name Indication) en clair pour bloquer ou autoriser les domaines. Ne déchiffre pas les données et ne sollicite pas l'ASIC CP.
 *   **Deep Packet Inspection (DPI - Inspection Profonde)**: Le FortiGate agit en tant que proxy de déchiffrement Man-in-the-Middle (MitM) grâce à l'accélération du **[[ASIC_SPU_Architecture#2. Content Processor (CP - ex: CP9, CP10)|Content Processor CP]]**.
-    *   *Requis:* Déployer le certificat CA racine du FortiGate sur tous les clients du LAN (via GPO Active Directory, voir les concepts PKI associés sur **[[CompTIA_SecurityPlus#3. PKI & Certificates|PKI & Certificates]]**) pour éviter les alertes de sécurité des navigateurs.\n
+    *   *Requis:* Déployer le certificat CA racine du FortiGate sur tous les clients du LAN pour éviter les alertes de sécurité des navigateurs.\n

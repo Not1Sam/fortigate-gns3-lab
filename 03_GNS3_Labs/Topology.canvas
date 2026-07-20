@@ -1,0 +1,43 @@
+{
+	"nodes":[
+		{"id":"b03df14f0cac73fc","type":"group","x":-360,"y":310,"width":1840,"height":370,"color":"1","label":"FortiGate HA Pair"},
+		{"id":"99d01b7a4a69187e","type":"group","x":-967,"y":1557,"width":1215,"height":537,"color":"4","label":"LAN1 — FGT-Primary"},
+		{"id":"881357c66a6564a8","type":"group","x":60,"y":-720,"width":1090,"height":520,"color":"5","label":"WAN / Internet Zone"},
+		{"id":"a8a0f4bb88da8425","type":"group","x":1080,"y":1557,"width":880,"height":520,"color":"6","label":"LAN2 — FGT-Secondary"},
+		{"id":"6f203394108fb8e8","type":"group","x":95,"y":1000,"width":830,"height":220,"color":"2","label":"OVS Switching Layer"},
+		{"id":"46789759def205d8","type":"text","text":"## FGT-Primary\n**FortiGate 7.4.12** · 2GB · 1vCPU\n``port1=WAN`` · ``port2=LAN1`` · ``port3=HA``\n`192.168.10.1/24` · Active","x":-249,"y":389,"width":515,"height":238},
+		{"id":"cb8a9905cdf190a0","type":"text","text":"## FGT-Secondary\n**FortiGate 7.4.12** · 2GB · 1vCPU\n``port1=WAN`` · ``port2=LAN2`` · ``port3=HA``\n`192.168.20.1/24` · Passive","x":855,"y":389,"width":515,"height":238},
+		{"id":"3480369995c0ef9a","type":"text","text":"## OCI Threat Simulator\n**External attacker / IPsec peer / Malicious host**\nPort scans · SQLi/XSS · EICAR · Phishing · Brute-force · DNS","x":234,"y":-682,"width":741,"height":154},
+		{"id":"1a3047921e03671e","type":"text","text":"# PUBLIC INTERNET","x":365,"y":-488,"width":480,"height":96},
+		{"id":"714e11c690f3795e","type":"text","text":"## NAT1 (virbr0)\n`192.168.122.1/24` · DHCP · MASQUERADE","x":365,"y":-354,"width":480,"height":115},
+		{"id":"6413a301057729d7","type":"text","text":"### Alpine DHCP\n`dnsmasq` (Docker)\n`192.168.20.100-200`","x":1160,"y":1636,"width":278,"height":144},
+		{"id":"5f5f2aae59ea4ab1","type":"text","text":"### Ubuntu Client\nDesktop (QEMU)\nVNC · `gns3`","x":1160,"y":1897,"width":297,"height":144},
+		{"id":"7d5fc3da5ab634da","type":"text","text":"### Traffic Gen + Syslog\nAuto-requests (Docker)\nUDP 514","x":1540,"y":1897,"width":384,"height":144},
+		{"id":"776861947f498522","type":"text","text":"### Monitoring Stack\nGrafana+Prometheus\nport 3000/9090","x":1584,"y":1636,"width":297,"height":144},
+		{"id":"25e368e9d5d83581","type":"text","text":"### OVS-LAN1\nDocker · 16 ports","x":157,"y":1049,"width":268,"height":122},
+		{"id":"709fc571b426f8c7","type":"text","text":"### OVS-LAN2\nDocker · 16 ports","x":597,"y":1049,"width":268,"height":122},
+		{"id":"abb149952c66650f","type":"text","text":"### PC1 (VPCS)\nCLI · ping / traceroute","x":-904,"y":1647,"width":293,"height":149},
+		{"id":"e9b9cc383de387e3","type":"text","text":"### PostgreSQL 16\nDatabase (Docker)\nport 5432","x":-548,"y":1870,"width":335,"height":149},
+		{"id":"6267ea8ea704fc73","type":"text","text":"### webterm-1\nBrowser (Docker) · VNC","x":-527,"y":1647,"width":293,"height":149},
+		{"id":"09d1b433afb93ecb","type":"text","text":"### App Server\nFlask+Nginx (Docker)\nport 80/443","x":-150,"y":1647,"width":335,"height":149}
+	],
+	"edges":[
+		{"id":"b27dafe4a841d600","fromNode":"3480369995c0ef9a","fromSide":"bottom","toNode":"1a3047921e03671e","toSide":"top","color":"3"},
+		{"id":"897391d584df645a","fromNode":"1a3047921e03671e","fromSide":"bottom","toNode":"714e11c690f3795e","toSide":"top","color":"3"},
+		{"id":"29f8ea096a370e22","fromNode":"714e11c690f3795e","fromSide":"bottom","toNode":"46789759def205d8","toSide":"top","label":"WAN (port1)"},
+		{"id":"c0e8ffb4de40aedc","fromNode":"714e11c690f3795e","fromSide":"bottom","toNode":"cb8a9905cdf190a0","toSide":"top","label":"WAN (port1)"},
+		{"id":"beda87575f68a651","fromNode":"46789759def205d8","fromSide":"right","toNode":"cb8a9905cdf190a0","toSide":"left","color":"1","label":"HA Heartbeat (port3)"},
+		{"id":"9f3ebd9d56fa638e","fromNode":"46789759def205d8","fromSide":"bottom","toNode":"25e368e9d5d83581","toSide":"top","label":"LAN (port2)"},
+		{"id":"5e4767a684442698","fromNode":"cb8a9905cdf190a0","fromSide":"bottom","toNode":"709fc571b426f8c7","toSide":"top","label":"LAN (port2)"},
+		{"id":"1e06e2187511db1c","fromNode":"25e368e9d5d83581","fromSide":"bottom","toNode":"abb149952c66650f","toSide":"top"},
+		{"id":"e2ae2ab781d13e12","fromNode":"25e368e9d5d83581","fromSide":"bottom","toNode":"6267ea8ea704fc73","toSide":"top"},
+		{"id":"13796bdb79d92313","fromNode":"25e368e9d5d83581","fromSide":"bottom","toNode":"09d1b433afb93ecb","toSide":"top"},
+		{"id":"202482f696ba33d1","fromNode":"09d1b433afb93ecb","fromSide":"bottom","toNode":"e9b9cc383de387e3","toSide":"right","color":"5","label":"DB conn (5432)"},
+		{"id":"793acbe33744b69f","fromNode":"709fc571b426f8c7","fromSide":"bottom","toNode":"6413a301057729d7","toSide":"left"},
+		{"id":"9f447f94f4e944fe","fromNode":"709fc571b426f8c7","fromSide":"bottom","toNode":"5f5f2aae59ea4ab1","toSide":"left"},
+		{"id":"2357058c43bd3148","fromNode":"709fc571b426f8c7","fromSide":"bottom","toNode":"776861947f498522","toSide":"top"},
+		{"id":"ead53893fc696e91","fromNode":"776861947f498522","fromSide":"bottom","toNode":"7d5fc3da5ab634da","toSide":"top","color":"5"},
+		{"id":"4b739ac67fa26b96","fromNode":"3480369995c0ef9a","fromSide":"left","toNode":"46789759def205d8","toSide":"left","color":"1","label":"Attacks (nmap/SQLi/EICAR)"},
+		{"id":"4f8a3d02539d2b10","fromNode":"3480369995c0ef9a","fromSide":"right","toNode":"cb8a9905cdf190a0","toSide":"right","color":"1","label":"Attacks (nmap/SQLi/EICAR)"}
+	]
+}
