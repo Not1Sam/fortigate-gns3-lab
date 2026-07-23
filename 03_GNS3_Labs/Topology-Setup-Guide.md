@@ -11,7 +11,10 @@ tags:
 Complete step-by-step guide to build, configure, and verify the full 15-node FortiGate hybrid-cloud lab. Designed to be followed by any AI agent assisting with this project.
 
 > [!info] References
-> Read these before starting: `[[Full-Topology-Spec.md]]`, `[[Nodes-Reference.md]]`, `[[memory/facts]]`, `[[memory/decisions]]`
+> Read these before starting: `[[Full-Topology-Spec.md]]`, `[[Nodes-Reference.md]]`, `[[memory/facts]]`, `[[memory/decisions]]`, `[[_INIT_]]`
+
+> [!tip] Web UI preference
+> When configuring FortiGate, always use the Web UI (`https://192.168.122.2` for Primary, `https://192.168.122.3` for Secondary) unless the user requests CLI. Login with `admin` / no password.
 
 ## Prerequisites
 
