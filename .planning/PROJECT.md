@@ -1,26 +1,26 @@
-# FortiGate SD-WAN & OVS Lab
+# FortiGate SD-WAN & OVS Fabric — Internship Project
 
 ## What This Is
 
-A hands-on GNS3 lab topology for the Coursera FortiGate Administrator course (Fortinet NSE 4). Dual FortiGate 7.4.12 VMs on a local workstation, connected through an OVS layer-2 fabric with 802.1Q VLANs, and linked to an OCI cloud VPS via dual IPsec tunnels under SD-WAN orchestration. Designed to practice every module in the course and serve as a reusable reference lab.
+An enterprise-grade hybrid cloud infrastructure built as the hands-on deliverable for a FortiGate firewall internship. Dual FortiGate 7.4.12 KVM VMs on a local GNS3 workstation, connected through an OVS layer-2 fabric with 802.1Q VLANs, and linked to an OCI cloud VPS via dual IPsec tunnels under SD-WAN orchestration. The Coursera FortiGate Administrator course provides the structured curriculum; the lab is the practical application.
 
 ## Core Value
 
-The lab must let me follow each Coursera module's exercises end-to-end on real FortiGate instances, with enough flexibility to explore my own scenarios beyond the course.
+Deliver a working, production-representative FortiGate topology that demonstrates SD-WAN, IPsec VPN, VDOM segmentation, and NGFW security profiles — proving competency in enterprise firewall administration for the internship.
 
 ## Context
 
-- **Motivation:** Mid-way through the Coursera FortiGate Administrator course (Fortinet, Inc.). Need a practical lab to cement concepts and finish the certification.
-- **Host:** GNS3 running on a local workstation.
-- **FortiGates:** Two FortiGate 7.4.12 VMs imported and licensed with free 14-day evaluation licenses.
-- **OVS:** GNS3 OVS appliance for L2 switching and VLAN trunking.
-- **Cloud:** OCI VPS already provisioned and accessible.
+- **Motivation:** Internship project centered on FortiGate firewall administration. The Coursera FortiGate Administrator course (Fortinet, Inc.) provides the module-by-module guide; the lab is the practical delivery.
+- **Nature:** Network infrastructure project — the only code is a lightweight API deployed on the OCI instance.
+- **Host:** GNS3 running on a local workstation (QEMU/KVM).
+- **FortiGates:** Two FortiGate 7.4.12 KVM VMs with permanent evaluation licenses — limited to 3 interfaces, 3 policies, 3 routes, 1 vCPU, 2 GB RAM each.
+- **OVS:** GNS3 OVS Docker appliance for L2 switching and 802.1Q VLAN trunking.
+- **Cloud:** OCI A1.Flex Always Free instance (1 OCPU, 6 GB RAM) — Libreswan IPsec endpoint + Docker services.
 - **IP scheme:** 192.168.x private range for all lab subnets.
-- **Linux comfort:** Comfortable with CLI — no GUI dependency for OVS or OCI management.
-- **WAN bridge:** Physical NIC passthrough for the second WAN interface is TBD — may use NAT-only depending on host networking.
-- **digitaraJobs mock API:** Placeholder endpoint, not a priority.
+- **Linux comfort:** Comfortable with CLI.
+- **WAN bridge:** Physical NIC passthrough for the second WAN interface is TBD — may use NAT-only fallback.
 - **Timeline:** Target completion by end of week (July 19, 2026).
-- **Scope approach:** Follow course module exercises first, then expand into free-form exploration.
+- **Role division:** I (the agent) handle GNS3 topology, FortiGate config, OVS, OCI infrastructure, IPsec/SD-WAN. You (the user) own the Python API code end-to-end — I provide occasional snippets and follow your lead.
 
 ## Requirements
 
@@ -45,12 +45,12 @@ The lab must let me follow each Coursera module's exercises end-to-end on real F
 
 ### Out of Scope
 
-- Production deployment — this is a learning lab only
-- digitaraJobs mock API — placeholder, no real logic needed
+- Production deployment — lab environment, not production
+- digitaraJobs mock API — placeholder, minimal logic
 
 ## Constraints
 
-- **Licenses:** FortiGate evaluation licenses expire after 14 days — lab must be reproducible
+- **Licenses:** FortiGate permanent evaluation license — 3 interfaces, 3 policies, 3 routes, 1 vCPU, 2 GB RAM, max 2 VDOMs, no FortiGuard
 - **Bandwidth:** OCI instance bandwidth and egress costs apply
 - **Host NIC:** Single physical NIC may limit WAN bridge options (TBD)
 
@@ -60,7 +60,8 @@ The lab must let me follow each Coursera module's exercises end-to-end on real F
 |----------|-----------|---------|
 | GNS3 OVS appliance | Simple L2 fabric, no custom VM needed | — Pending |
 | 192.168.x IP range | Familiar, simple, adequate for lab scale | — Pending |
-| Study + explore scope | Course comes first, free-form after | — Pending |
+| Coursera course as structure | Provides module-by-module guide for internship delivery | — Pending |
+| Permanent eval license (3/3/3) | Free, no expiry — limits shape the design | — Pending |
 
 ---
 

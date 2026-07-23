@@ -1,7 +1,7 @@
 # Requirements: FortiGate SD-WAN & OVS Lab
 
 **Defined:** 2026-07-15
-**Core Value:** The lab must let me follow each Coursera module's exercises end-to-end on real FortiGate instances, with enough flexibility to explore my own scenarios beyond the course.
+**Core Value:** Deliver a working FortiGate topology demonstrating SD-WAN, IPsec, VDOMs, and NGFW — proving enterprise firewall administration competency for the internship.
 
 ## v1 Requirements
 

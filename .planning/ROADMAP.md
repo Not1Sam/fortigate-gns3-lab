@@ -19,12 +19,18 @@ Build a GNS3-based FortiGate lab from bare workstation to a fully operational NS
 **Mode**: mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: GNS3-01, GNS3-02, GNS3-03, OPS-01
+**Status**: Planned (3 plans, 2 waves)
+**Cross-cutting constraints:** FortiGate VMs must use exactly 1 vCPU and 2048 MB RAM for license activation; two separate FortiCloud accounts required (one trial per account)
+**Wave 1** *(topology + licensing)*
+- **01-PLAN** — Build GNS3 topology with all 5 nodes, cable connections, verify boot and console access
+- **02-PLAN** — Activate permanent trial licenses on both FortiGates, verify OVS 16-port bridge
+**Wave 2** *(WAN + ops)*
+- **03-PLAN** — Configure WAN1 internet access on FGT-Primary, test ping to 8.8.8.8, document and verify config backup/restore workflow
 **Success Criteria** (what must be TRUE):
-  1. Both FortiGate 7.4.12 VMs are imported into GNS3, boot, and show valid permanent trial license status via `get system license` — not expired, not in 14-day eval mode
-  2. OVS Docker appliance boots in GNS3 and shows all 16 ports operational on the default `br0` bridge (`ovs-vsctl show`)
-  3. GNS3 NAT cloud node provides internet connectivity — a test node connected to it can ping 8.8.8.8
-  4. Config backup (`execute backup config tftp`) and restore (`execute restore config tftp`) workflow is documented and verified working for both FortiGates
-**Plans**: TBD
+   1. Both FortiGate 7.4.12 VMs are imported into GNS3, boot, and show valid permanent trial license status via `get system license` — not expired, not in 14-day eval mode
+   2. OVS Docker appliance boots in GNS3 and shows all 16 ports operational on the default `br0` bridge (`ovs-vsctl show`)
+   3. GNS3 NAT cloud node provides internet connectivity — a test node connected to it can ping 8.8.8.8
+   4. Config backup (`execute backup config tftp`) and restore (`execute restore config tftp`) workflow is documented and verified working for both FortiGates
 
 ### Phase 2: VLAN Fabric & Dual WAN
 **Goal**: OVS L2 fabric with 802.1Q VLAN trunking, VLAN subinterfaces on FortiGates (stretching trial's 3-interface limit), and dual WAN paths on primary FortiGate
@@ -82,7 +88,7 @@ Build a GNS3-based FortiGate lab from bare workstation to a fully operational NS
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. GNS3 Lab Foundation | 0/0 | Not started | - |
+| 1. GNS3 Lab Foundation | 0/3 | Planned (3 plans) | - |
 | 2. VLAN Fabric & Dual WAN | 0/0 | Not started | - |
 | 3. OCI Cloud & IPsec Tunnels | 0/0 | Not started | - |
 | 4. SD-WAN & VDOM Segmentation | 0/0 | Not started | - |
