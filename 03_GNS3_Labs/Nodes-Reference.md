@@ -1,6 +1,6 @@
 # Nodes Reference — GNS3 FortiGate Lab
 
-## All 14 Nodes
+## All 14 GNS3 Nodes (+1 WAN Switch)
 
 | # | Node Name | Template | Type | RAM | Adapters | Console | Image |
 |---|---|---|---|---|---|---|---|
@@ -17,14 +17,17 @@
 | 11 | **Traffic Gen + Syslog** | *(to create)* | Docker | — | 1 | Telnet | `alpine:latest` |
 | 12 | **PC1** | VPCS | Built-in | — | — | Telnet | Built-in |
 | 13 | **NAT1** | Cloud (NAT) | Built-in | — | — | — | `virbr0` host bridge |
-| 14 | **OCI Instance** | *(outside GNS3)* | Cloud VM | 1–6 GB | — | SSH | Ubuntu 24.04 |
+| 14 | **WAN Switch** | Ethernet Switch | Built-in | — | 4+ | — | Built-in |
+| 15 | **OCI Instance** | *(outside GNS3)* | Cloud VM | 1–6 GB | — | SSH | Ubuntu 24.04 |
 
 ## Port Summary
 
 | Node | Connected Ports |
 |---|---|
-| FGT-Primary | port1→NAT1, port2→OVS-LAN1, port3→FGT-Secondary port3 |
-| FGT-Secondary | port1→NAT1, port2→OVS-LAN2, port3→FGT-Primary port3 |
+| NAT1 | 1 port → WAN Switch |
+| WAN Switch | NAT1, FGT-Primary port1, FGT-Secondary port1 |
+| FGT-Primary | port1→WAN Switch, port2→OVS-LAN1, port3→FGT-Secondary port3 |
+| FGT-Secondary | port1→WAN Switch, port2→OVS-LAN2, port3→FGT-Primary port3 |
 | OVS-LAN1 | FGT1 port2, VPCS, webterm, App Server |
 | OVS-LAN2 | FGT2 port2, Alpine DHCP, Ubuntu Client, Monitoring Stack |
 

@@ -10,6 +10,8 @@ status: "draft"
 
 > **Note:** This file has been updated for the current dual-FGT HA architecture (July 20 redesign). The previous version referenced a single-FGT topology with port4 HA and 10.0.x.x IPs.
 
+**Topology note:** NAT1 has only 1 port. A WAN Switch (Ethernet Switch, built-in) fans it out to both FGTs' port1.
+
 ## Current Topology IP Plan
 
 | Node | Port | Subnet | Gateway | Role |

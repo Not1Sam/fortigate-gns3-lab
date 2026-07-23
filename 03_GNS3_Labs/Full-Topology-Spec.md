@@ -2,7 +2,7 @@
 
 ## 1. Architecture Overview
 
-A GNS3-based network security lab with 14 nodes demonstrating FortiGate routing, NAT, IPsec VPN, HA clustering, and full FortiGuard UTM stack. An OCI free-tier VM acts as an external threat simulation platform for live security demos.
+A GNS3-based network security lab with 15 nodes (14 in GNS3 + 1 OCI VM) demonstrating FortiGate routing, NAT, IPsec VPN, HA clustering, and full FortiGuard UTM stack. An OCI free-tier VM acts as an external threat simulation platform for live security demos.
 
 ### Design Principles
 
@@ -13,7 +13,20 @@ A GNS3-based network security lab with 14 nodes demonstrating FortiGate routing,
 
 ---
 
-## 2. Network Addressing
+## 2. Node Count
+
+| Type | Count | Nodes |
+|---|---|---|---|
+| QEMU VMs | 3 | FGT-Primary, FGT-Secondary, Ubuntu Desktop |
+| Docker (Podman) | 8 | OVS-LAN1, OVS-LAN2, webterm, Alpine DHCP, App Server, PostgreSQL, Monitoring Stack, Traffic Gen+Syslog |
+| GNS3 Built-in | 3 | VPCS, NAT1, WAN Switch |
+| **Total in GNS3** | **14** | |
+| External (OCI) | 1 | Threat simulator VM |
+| **Conceptual total** | **15** | |
+
+---
+
+## 3. Network Addressing
 
 | Segment | Subnet | Gateway | DHCP Server | DHCP Range |
 |---|---|---|---|---|
@@ -34,7 +47,7 @@ A GNS3-based network security lab with 14 nodes demonstrating FortiGate routing,
 
 ---
 
-## 3. Node Specifications
+## 4. Node Specifications
 
 ### 3.1 QEMU Nodes
 
@@ -216,24 +229,25 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 
 ---
 
-## 4. Connection Map
+## 5. Connection Map
 
 ```
 [OCI Threat Simulator]
     │  (internet)
 [PUBLIC INTERNET]
     │
-[NAT1 — virbr0 — 192.168.122.1/24]
+[NAT1 — virbr0 — 192.168.122.1/24]  (1 port)
     │
-    ├──── WAN (port1) ──── FGT-Primary ──── HA (port3) ──── FGT-Secondary ──── WAN (port1) ────┘
-    │                         │ (port2)                      │ (port2)
-    │                     [OVS-LAN1]                    [OVS-LAN2]
-    │                    ╱    │    ╲                   ╱    │    ╲
-    │               [VPCS] [webterm] [App Server]  [DHCP] [Ubuntu] [Monitoring]
-    │                                          │                    │
-    │                                    [PostgreSQL]       [Traffic Gen + Syslog]
-    │
-    └───── WAN (port1) ──── (attack traffic from OCI directly to FGT WAN IPs)
+[WAN Switch]  (Ethernet Switch — fans out NAT1 to both FGTs)
+    │                 │
+    │                 │
+[FGT-Primary] ── HA (port3) ── [FGT-Secondary]
+    │ (port2)                      │ (port2)
+[OVS-LAN1]                   [OVS-LAN2]
+   ╱  │  ╲                     ╱  │  ╲
+[VPCS] [webterm] [App]    [DHCP] [Ubuntu] [Monitoring]
+          │                    │
+    [PostgreSQL]         [Traffic Gen + Syslog]
 ```
 
 ### Edge Details
@@ -242,25 +256,26 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 |---|---|---|---|---|
 | 1 | OCI | PUBLIC INTERNET | — | Internet |
 | 2 | PUBLIC INTERNET | NAT1 | — | Internet |
-| 3 | NAT1 | FGT-Primary port1 | WAN | Ethernet |
-| 4 | NAT1 | FGT-Secondary port1 | WAN | Ethernet |
-| 5 | FGT-Primary port3 | FGT-Secondary port3 | HA Heartbeat | Ethernet |
-| 6 | FGT-Primary port2 | OVS-LAN1 | LAN | Ethernet |
-| 7 | FGT-Secondary port2 | OVS-LAN2 | LAN | Ethernet |
-| 8 | OVS-LAN1 | VPCS | — | Ethernet |
-| 9 | OVS-LAN1 | webterm-1 | — | Ethernet |
-| 10 | OVS-LAN1 | App Server | — | Ethernet |
-| 11 | App Server | PostgreSQL | DB (5432) | Internal (container link, not a GNS3 cable) |
-| 12 | OVS-LAN2 | Alpine DHCP | — | Ethernet |
-| 13 | OVS-LAN2 | Ubuntu Client | — | Ethernet |
-| 14 | OVS-LAN2 | Monitoring Stack | — | Ethernet |
-| 15 | Monitoring Stack | Traffic Gen + Syslog | — | Internal |
-| 16 | OCI | FGT-Primary (attack) | Attack traffic | Internet |
-| 17 | OCI | FGT-Secondary (attack) | Attack traffic | Internet |
+| 3 | NAT1 | WAN Switch | WAN uplink | Ethernet |
+| 4 | WAN Switch | FGT-Primary port1 | WAN | Ethernet |
+| 5 | WAN Switch | FGT-Secondary port1 | WAN | Ethernet |
+| 6 | FGT-Primary port3 | FGT-Secondary port3 | HA Heartbeat | Ethernet |
+| 7 | FGT-Primary port2 | OVS-LAN1 | LAN | Ethernet |
+| 8 | FGT-Secondary port2 | OVS-LAN2 | LAN | Ethernet |
+| 9 | OVS-LAN1 | VPCS | — | Ethernet |
+| 10 | OVS-LAN1 | webterm-1 | — | Ethernet |
+| 11 | OVS-LAN1 | App Server | — | Ethernet |
+| 12 | App Server | PostgreSQL | DB (5432) | Internal (container link, not a GNS3 cable) |
+| 13 | OVS-LAN2 | Alpine DHCP | — | Ethernet |
+| 14 | OVS-LAN2 | Ubuntu Client | — | Ethernet |
+| 15 | OVS-LAN2 | Monitoring Stack | — | Ethernet |
+| 16 | Monitoring Stack | Traffic Gen + Syslog | — | Internal |
+| 17 | OCI | FGT-Primary (attack) | Attack traffic | Internet |
+| 18 | OCI | FGT-Secondary (attack) | Attack traffic | Internet |
 
 ---
 
-## 5. Host Resource Budget
+## 6. Host Resource Budget
 
 | Component | RAM Estimate | Type | Running Count |
 |---|---|---|---|
@@ -281,7 +296,7 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 
 ---
 
-## 6. Docker Image Status
+## 7. Docker Image Status
 
 | Image | Status | Size |
 |---|---|---|
@@ -295,7 +310,7 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 
 ---
 
-## 7. Execution Phases
+## 8. Execution Phases
 
 ### Phase A — Core Security & Connectivity (Standalone)
 
@@ -318,7 +333,7 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 
 ---
 
-## 8. Demo Scenarios Matrix
+## 9. Demo Scenarios Matrix
 
 | # | Scenario | Trigger | Detection | Visible In |
 |---|---|---|---|---|
@@ -334,7 +349,7 @@ All Docker nodes run via GNS3's Podman integration. No additional configuration 
 
 ---
 
-## 9. FortiGate Eval License — Constraints & Workarounds
+## 10. FortiGate Eval License — Constraints & Workarounds
 
 ### Hard Limits
 | Resource | Cap | Lab Allocation |
@@ -362,7 +377,7 @@ Both FGTs already have active eval licenses via separate FortiCloud accounts.
 
 ---
 
-## 10. Security Hardening Baseline
+## 11. Security Hardening Baseline
 
 Applied during Phase A config:
 
@@ -381,7 +396,7 @@ Applied during Phase A config:
 
 ---
 
-## 11. Reference
+## 12. Reference
 
 | Resource | Location |
 |---|---|
