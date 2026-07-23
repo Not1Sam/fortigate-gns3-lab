@@ -48,14 +48,29 @@ Use `python3 -c "import json; ..."` to parse it and check actual wiring/node con
 
 ## 3. Agent Workflow
 
+### ⚠️ Golden Rule #1 — Always Ask Permission
+
+**You MUST ask permission before making ANY of these changes:**
+- Editing the GNS3 project file (`.gns3` JSON) — node properties, wiring, templates
+- Building or modifying Docker images
+- Modifying QEMU/VM disk images (overlays, base images)
+- Writing config files inside GNS3 nodes (Alpine, Ubuntu, OVS, etc.)
+- Running commands on the host (iptables, docker, podman, systemctl)
+- Modifying FortiGate configuration (Web UI or CLI)
+- Changing network topology, wiring, or adding/removing nodes
+- Creating files or directories outside the Obsidian vault
+
+**Wait for explicit "yes, do it" before proceeding. Show the exact command.**
+
 ### Golden rules
 
-1. **Always ask the user before running any command** — present each step, wait for confirmation
+1. **Always ask permission** (see above) — present each step, wait for confirmation
 2. **Prefer Web UI for FortiGate config** — user explicitly requested this. Only use CLI if the Web UI can't do it
 3. **Step by step** — one action at a time. Don't batch multiple configs
 4. **Verify each step** — after every change, confirm it worked
-5. **Update vault after completing work** — commit to `memory/progress.md` and `memory/log.md`
-6. **Commit to GitHub** — vault changes go to the public repo
+5. **Read live state before assuming** — check GNS3 project file and node consoles, don't rely on stale memory
+6. **Update vault after completing work** — commit to `memory/progress.md` and `memory/log.md`
+7. **Commit to GitHub** — vault changes go to the public repo
 
 ### Entry sequence
 

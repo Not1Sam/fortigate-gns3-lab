@@ -115,3 +115,18 @@ This log tracks the history of AI agents assisting in this project, including ti
     *   Documented corrections in `Topology-Setup-Guide.md` (Alpine manual `ip` config + policy Web UI section)
     *   Updated `memory/progress.md` with completed items
 *   **Current Status**: Wave 1 — FGT-Primary LAN1 policy + client verification next
+
+### [2026-07-23] — Wave 1: Alpine DHCP Fix, Ubuntu Netplan, Docker Image
+*   **Objectives**: Fix Alpine DHCP persistence, fix Ubuntu auto-DHCP, document every fix for future agents
+*   **Actions Taken**:
+    - Diagnosed Alpine DHCP not working on restart: dnsmasq running with DEFAULT config (no DHCP range, all options commented out)
+    - Fix: updated start_command in GNS3 project file to write custom dnsmasq.conf via echo commands
+    - Built custom Docker image `alpine-dhcp:latest` with dnsmasq pre-installed (13.8 MB)
+    - Fixed container lifecycle: old container_id must be nulled + docker rm for GNS3 to create fresh container
+    - Configured Ubuntu netplan at `/etc/netplan/01-netcfg.yaml` for persistent DHCP on enp2s0
+    - Fixed permissions (chmod 600) to suppress netplan warnings
+    - Verified: Ubuntu auto-DHCP works without manual dhcpcd command ✅
+    - Documented all Alpine/Ubuntu/Docker/GNS3 pitfalls in Topology-Setup-Guide.md
+    - Added prominent "⚠️ Always Ask Permission" rule in _INIT_.md with explicit list of changes requiring user approval
+    - Updated progress.md to reflect current verified state
+*   **Current Status**: Wave 1 complete — LAN services verified. Ready for Docker service nodes / OCI cloud.

@@ -305,38 +305,51 @@ end
 
 ### 5.2 Alpine DHCP Server (LAN2)
 
-On Alpine DHCP container:
+> [!danger] Ask permission
+> This step modifies the GNS3 project file (JSON) and builds a custom Docker image. Present to the user before proceeding.
+
+#### Step 1 — Build custom Docker image with dnsmasq pre-installed
 
 ```bash
-# Configure interface manually (setup-interfaces not available in minimal image)
-ip addr add 192.168.20.2/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.20.1
-
-# Set DNS
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
-
-# Install dnsmasq
-apk update
-apk add dnsmasq
-
-# Configure
-cat > /etc/dnsmasq.conf << 'EOF'
-interface=eth0
-dhcp-range=192.168.20.100,192.168.20.200,12h
-dhcp-option=3,192.168.20.1
-dhcp-option=6,8.8.8.8
-EOF
-
-# Start in foreground first to test (Ctrl+C to stop)
-dnsmasq -d
-
-# Then run in background:
-dnsmasq
+mkdir -p /tmp/alpine-dhcp
+cat > /tmp/alpine-dhcp/Dockerfile << 'DOCKERFILE'
+FROM alpine:latest
+RUN apk update && apk add dnsmasq && rm -rf /var/cache/apk/*
+DOCKERFILE
+docker build -t alpine-dhcp:latest /tmp/alpine-dhcp
 ```
 
-> [!note] Alpine Docker networking
-> `setup-interfaces` is not available in the minimal `alpine:latest` Docker image. Use `ip` commands directly to configure the interface.
+#### Step 2 — Update GNS3 project file
+
+Edit the Alpine-DHCP node in `Internship.gns3` to:
+- Set `image` to `alpine-dhcp:latest`
+- Set `container_id` to `null` (forces GNS3 to create a fresh container)
+- Set `start_command` to:
+
+```
+sh -c "ip addr add 192.168.20.2/24 dev eth0 2>/dev/null; ip link set eth0 up; ip route add default via 192.168.20.1 2>/dev/null; echo nameserver 8.8.8.8 > /etc/resolv.conf; echo interface=eth0 > /etc/dnsmasq.conf; echo dhcp-range=192.168.20.100,192.168.20.200,12h >> /etc/dnsmasq.conf; echo dhcp-option=3,192.168.20.1 >> /etc/dnsmasq.conf; echo dhcp-option=6,8.8.8.8 >> /etc/dnsmasq.conf; dnsmasq; /bin/sh"
+```
+
+#### Step 3 — Delete old container and restart GNS3
+
+```bash
+docker rm GNS3.Alpine-DHCP.<project-id>
+systemctl --user restart gns3-server.service
+```
+
+Then start Alpine-DHCP in GNS3. It will auto-configure IP and start dnsmasq with the correct config.
+
+#### Step 4 — Verify
+
+```bash
+# Alpine console
+ip addr show eth0          # should show 192.168.20.2/24
+ps aux | grep dnsmasq      # should show dnsmasq running
+
+# Test a client on LAN2 (Ubuntu or VPCS)
+sudo dhcpcd enp2s0         # Ubuntu
+ip addr                    # should show 192.168.20.x
+```
 
 ## Phase 6 — Policies & NAT
 
@@ -517,14 +530,49 @@ Access OCI `/api/status` — the source IP should show the FGT's WAN IP (192.168
 
 ## Agent Workflow Notes
 
-- **Always ask the user before making changes** — present each step, wait for confirmation
-- **Use GNS3 console** (Telnet) for FGT, Alpine, OVS config
-- **Use VNC** for Ubuntu Desktop and webterm
-- **Docker/Podman on host** for image management
-- **FGT CLI** via `execute ssh` from GNS3 or direct Telnet to port in GNS3 (right-click → Console)
-- **Update [[memory/progress]]** after completing each phase
-- **After any GNS3 wiring change**, update the [[Topology.canvas]] to reflect it
-- **After any IP/config change**, update [[Full-Topology-Spec.md]] and [[memory/facts]]
+### ⚠️ Critical Rule — Always Ask Permission
+**You MUST ask the user for permission before making any of these changes:**
+- Editing the GNS3 project file (`.gns3` JSON) — modifying node properties, wiring, templates
+- Building or modifying Docker images
+- Modifying QEMU/VM disk images
+- Writing config files to GNS3 nodes (Alpine, Ubuntu, etc.)
+- Running commands on the host system (iptables, docker, podman, systemctl)
+- Modifying FortiGate config (CLI or Web UI)
+- Changing network topology or wiring
+
+Present the exact command/change and ask "Should I proceed?" Wait for explicit confirmation.
+
+### Standard Procedure
+1. **Always ask the user before making changes** — present each step, wait for confirmation
+2. **Use GNS3 console** (Telnet) for FGT, Alpine, OVS config
+3. **Use VNC** for Ubuntu Desktop and webterm
+4. **Docker/Podman on host** for image management
+5. **FGT CLI** via Web UI first when possible, or SSH/Telnet
+6. **Update [[memory/progress]]** after completing each phase
+7. **After any GNS3 wiring change**, update the [[Topology.canvas]] to reflect it
+8. **After any IP/config change**, update [[Full-Topology-Spec.md]] and [[memory/facts]]
+
+### Known Pitfalls for Alpine DHCP
+- `setup-interfaces` is not available in `alpine:latest` — use `ip addr add` directly
+- `alpine:latest` does NOT include dnsmasq — must be added via custom image or `apk add`
+- Custom image `alpine-dhcp:latest` is already built locally with dnsmasq pre-installed
+- GNS3 `start_command` in the project file runs on every container start — use for network config
+- Old Docker containers must be deleted (`docker rm`) before GNS3 will create a new one with updated start_command
+- GNS3 project file must have `container_id` set to `null` for GNS3 to create a fresh container
+- dnsmasq.conf is NOT created by default — the start_command must write it via `echo` statements
+
+### Known Pitfalls for Ubuntu Desktop
+- Cloud-init was disabled in the base image; pre-created `ubuntu` user with password `gns3`
+- Netplan file must be created at `/etc/netplan/01-netcfg.yaml` with `dhcp4: true`
+- Permissions must be `chmod 600` to avoid netplan warnings
+- `sudo dhcpcd enp2s0` can be used as fallback if netplan apply doesn't get an IP
+- The VM disk persists changes across reboots (unlike Docker containers)
+
+### Known Pitfalls for GNS3
+- GNS3 server caches project state; restart with `systemctl --user restart gns3-server.service` after modifying the `.gns3` file
+- `gns3-control status` can't verify iptables rules without sudo — the PARTIAL warning is misleading if rules were already applied
+- `gns3-control forward-enable` requires fingerprint sudo (iptables rules)
+- Docker commands (`ps`, `rm`, `exec`) work without sudo; `docker build` also works
 
 ## Recovery
 
