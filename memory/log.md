@@ -88,3 +88,30 @@ This log tracks the history of AI agents assisting in this project, including ti
     *   Modified Ubuntu VM disk directly via fuse2fs — set password `gns3`, seeded cloud-init
     *   Updated all memory files (`facts.md`, `decisions.md`, `progress.md`) with current architecture and constraints
 *   **Current Status**: Pre-Execution — planning complete, Phase A Wave 1 ready to start
+
+### [2026-07-23] — Wave 1 Execution: FGT-Primary Config & DHCP
+*   **Objectives**: Fix NAT, configure FGT-Primary, set up LAN1 DHCP
+*   **Actions Taken**:
+    *   Replaced Ubuntu overlay with standalone qcow2 (password `gns3`, NOPASSWD sudo)
+    *   Modified GNS3 base image permanently — any new linked clone inherits credentials
+    *   Created `_INIT_.md` — agent init guide for collaborators
+    *   Created `Topology-Setup-Guide.md` — 10-phase step-by-step setup guide
+    *   Fixed NAT forwarding (iptables MASQUERADE + FORWARD rules enabled)
+    *   Configured FGT-Primary: port1 DHCP, port2 `192.168.10.1/24`, port3 `169.254.0.1/30`, static route, DNS
+    *   Configured DHCP server on FGT-Primary for LAN1 (`192.168.10.100` — `192.168.10.200`)
+    *   Verified internet access (`execute ping 8.8.8.8` ✅)
+    *   Corrected DHCP config: `set dns-service default` (not `set dns-server1`)
+    *   Updated `memory/progress.md`, `memory/log.md`, `memory/facts.md` with current state
+*   **Current Status**: Wave 1 in progress — FGT-Secondary + Alpine DHCP next
+
+### [2026-07-23] — Wave 1: FGT-Secondary, Alpine DHCP, Policies
+*   **Objectives**: Configure FGT-Secondary, set up Alpine DHCP, enable LAN2 internet
+*   **Actions Taken**:
+    *   Configured FGT-Secondary: port1 static `192.168.122.3`, port2 `192.168.20.1/24`, port3 `169.254.0.2/30`, static route, DNS
+    *   Fixed FGT-Secondary port3 IP from `169.245.0.2/30` to `169.254.0.2/30`
+    *   Created LAN2-to-WAN firewall policy (NAT enabled) via Web UI
+    *   Configured Alpine DHCP container: static IP `192.168.20.2/24` via `ip` commands (noted: `setup-interfaces` not available in minimal `alpine:latest` Docker image)
+    *   Installed and started dnsmasq on Alpine DHCP (range `192.168.20.100`-`200`)
+    *   Documented corrections in `Topology-Setup-Guide.md` (Alpine manual `ip` config + policy Web UI section)
+    *   Updated `memory/progress.md` with completed items
+*   **Current Status**: Wave 1 — FGT-Primary LAN1 policy + client verification next

@@ -98,6 +98,9 @@ FGT-Primary (port3) --- FGT-Secondary (port3)   [169.254.0.0/30]
 > [!tip] Verify wiring
 > After wiring, compare against the connection map in `[[Full-Topology-Spec.md]]`
 
+> [!note] DHCP DNS syntax
+> On FortiOS 7.4.x, use `set dns-service default` (not `set dns-server1 <ip>`). This tells the DHCP server to hand out the same DNS servers the FGT itself uses.
+
 ### 1.4 Docker Image Pulls
 
 Before starting Docker-based nodes, pull images on the host:
@@ -223,6 +226,8 @@ config system dns
 end
 ```
 
+Verify: `execute ping 8.8.8.8`
+
 ### 3.5 Verify Connectivity
 
 From FGT-Primary:
@@ -284,7 +289,7 @@ config system dhcp server
     set interface port2
     set netmask 255.255.255.0
     set default-gateway 192.168.10.1
-    set dns-server1 8.8.8.8
+    set dns-service default
     config ip-range
       edit 1
         set start-ip 192.168.10.100
@@ -300,19 +305,35 @@ end
 On Alpine DHCP container:
 
 ```bash
-setup-interfaces          # configure eth0 with static IP 192.168.20.2/24
+# Configure interface manually (setup-interfaces not available in minimal image)
+ip addr add 192.168.20.2/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+
+# Set DNS
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
 # Install dnsmasq
+apk update
 apk add dnsmasq
+
+# Configure
 cat > /etc/dnsmasq.conf << 'EOF'
 interface=eth0
 dhcp-range=192.168.20.100,192.168.20.200,12h
 dhcp-option=3,192.168.20.1
 dhcp-option=6,8.8.8.8
 EOF
-rc-service dnsmasq start
+
+# Start in foreground first to test (Ctrl+C to stop)
+dnsmasq -d
+
+# Then run in background:
+dnsmasq
 ```
+
+> [!note] Alpine Docker networking
+> `setup-interfaces` is not available in the minimal `alpine:latest` Docker image. Use `ip` commands directly to configure the interface.
 
 ## Phase 6 — Policies & NAT
 
@@ -356,6 +377,9 @@ config firewall policy
   next
 end
 ```
+
+> [!tip] Web UI alternative
+> Go to **Policy & Objects → Firewall Policy → Create New**. Same settings. Make sure NAT is checked under Firewall/Network Options.
 
 ## Phase 7 — Docker Service Nodes
 
