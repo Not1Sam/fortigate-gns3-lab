@@ -106,6 +106,20 @@
 | DNS `phish.test.lab` | DNS | DNS filter — static domain block |
 | `nmap -sS FGT-WAN` | TCP SYN | IPS — port scan anomaly |
 
+## Credentials
+
+| Node | User | Password | Auth Method |
+|---|---|---|---|
+| FGT (both) | `admin` | (none — set at first boot) | Web UI / CLI |
+| Ubuntu Desktop | `ubuntu` | `gns3` | VNC login, SSH (NOPASSWD sudo) |
+| Ubuntu root | `root` | `gns3` | `su -` from ubuntu |
+| VPCS | — | — | No auth required |
+| Alpine Docker | `root` | (none — container default) | Telnet |
+| webterm | — | — | VNC, no auth |
+
+> [!tip] Ubuntu credentials are persistent
+> The GNS3 base image (`ubuntu-24.04-minimal-cloudimg-amd64.img`) has been modified with the ubuntu user pre-created. Any new linked clone node inherits these credentials. See [[Topology-Setup-Guide]] for details.
+
 ## Key Constraints Summary
 1. **2 FortiCloud accounts needed** — one eval license per account
 2. **3 policies each FGT** — forces efficient policy design
