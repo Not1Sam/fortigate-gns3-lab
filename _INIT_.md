@@ -10,23 +10,29 @@ tags:
 
 ## 1. Orientation
 
-This vault documents a **FortiGate NGFW hybrid-cloud lab** built on GNS3 — the practical deliverable for a cybersecurity internship. 15 nodes: dual FortiGate 7.4.12 HA pair, OVS fabric, Docker clients, Ubuntu desktop, and an OCI cloud threat simulator.
+This vault documents a **FortiGate NGFW hybrid-cloud lab** built on GNS3 — two independent FortiGates (no HA) with a transit link, separate LAN segments, Docker services, and an OCI cloud threat simulator.
+
+### Layout
+```
+NAT1 ──Switch1──┬──FGT-Primary (port1 WAN)──port2──OVS-LAN1──[PC1, webterm, App-Server, PostgreSQL]
+                 │                         └port3──10.0.0.1/30──┐
+                 │                                               ├──Transit (OSPF)
+                 └──FGT-Secondary (port1 WAN)──port2──OVS-LAN2──[Alpine DHCP, Ubuntu, Grafana, Prometheus, Traffic-Gen]
+                                              └port3──10.0.0.2/30──┘
+```
 
 ### Must-read files (in order)
 
 | File | Why |
 |---|---|
-| `[[Topology-Setup-Guide]]` | Step-by-step setup — start here to understand what's been done and what's next |
+| `[[Topology-Setup-Guide]]` | Step-by-step setup — 10 phases, start here |
 | `[[Full-Topology-Spec]]` | Complete blueprint — architecture, IPs, node specs, wiring |
 | `[[Nodes-Reference]]` | Quick ref — node names, ports, images, credentials |
 | `[[memory/facts]]` | Technical facts — eval limits, IP scheme, port maps, OCI endpoints |
 | `[[memory/progress]]` | Current state — what's completed, what's next |
 | `[[memory/decisions]]` | Architectural decisions with rationale |
-| `[[memory/log]]` | Session history — what previous agents and the user have done |
 
-### Also read the actual project file
-GNS3 project at `/home/bingus/GNS3/projects/d311a72f-2416-4426-9138-96ccd23fe8fd/Internship.gns3`
-Use `python3 -c "import json; ..."` to parse it and check actual wiring/node configs.
+For GNS3 project: `/home/bingus/GNS3/projects/d311a72f-2416-4426-9138-96ccd23fe8fd/Internship.gns3`
 
 ## 2. Key Facts
 
@@ -35,16 +41,15 @@ Use `python3 -c "import json; ..."` to parse it and check actual wiring/node con
 | Hypervisor | GNS3 on Arch Linux (QEMU/KVM + Podman) |
 | FortiOS | 7.4.12 KVM, permanent eval (3 ports, 3 policies, 3 routes per FGT) |
 | Ubuntu user/pass | `ubuntu` / `gns3` (NOPASSWD sudo) |
-| Root password | `gns3` |
 | WAN subnet | `192.168.122.0/24` (NAT1 / virbr0) |
 | LAN1 | `192.168.10.0/24` (FGT-Primary port2) |
 | LAN2 | `192.168.20.0/24` (FGT-Secondary port2) |
-| HA link | `169.254.0.0/30` (port3 on both FGTs) |
-| Clients on LAN1 | PC1 (VPCS), webterm-1 |
-| Clients on LAN2 | Alpine-DHCP (dnsmasq server), Ubuntu-Desktop-Client-1 |
+| Transit | `10.0.0.0/30` (port3 on both FGTs) |
+| Inter-LAN routing | OSPF over transit link |
 | GNS3 project path | `/home/bingus/GNS3/projects/d311a72f-2416-4426-9138-96ccd23fe8fd/Internship.gns3` |
 | Vault path | `/home/bingus/obsidian-vaults/fortigate-lab` |
 | Git repo | `https://github.com/Not1Sam/fortigate-gns3-lab` |
+| per-user progress | `progress/{username}.md` |
 
 ## 3. Agent Workflow
 
@@ -65,23 +70,40 @@ Use `python3 -c "import json; ..."` to parse it and check actual wiring/node con
 ### Golden rules
 
 1. **Always ask permission** (see above) — present each step, wait for confirmation
-2. **Prefer Web UI for FortiGate config** — user explicitly requested this. Only use CLI if the Web UI can't do it
-3. **Step by step** — one action at a time. Don't batch multiple configs
+2. **Prefer Web UI for FortiGate config** — only use CLI if the Web UI can't do it
+3. **Step by step** — one action at a time
 4. **Verify each step** — after every change, confirm it worked
-5. **Read live state before assuming** — check GNS3 project file and node consoles, don't rely on stale memory
-6. **Update vault after completing work** — commit to `memory/progress.md` and `memory/log.md`
+5. **Read live state before assuming** — check GNS3 project file and node consoles
+6. **Update vault after completing work** — commit to `memory/progress.md` and per-user `progress/{username}.md`
 7. **Commit to GitHub** — vault changes go to the public repo
 
 ### Entry sequence
 
 ```
 1. Read this file (_INIT_.md)
-2. Read memory/progress.md → understand current state
-3. Read memory/log.md → understand what happened in previous sessions
-4. Check actual GNS3 project file → verify wiring matches docs
-5. Read Topology-Setup-Guide.md → follow the step sequence
-6. Ask user "what do you want to tackle next?"
+2. Read memory/facts.md → technical facts
+3. Read memory/decisions.md → architectural decisions
+4. Read memory/progress.md → current state overview
+5. Read progress/{username}.md → per-user progress (if exists, create if not)
+6. Check actual GNS3 project file → verify wiring matches docs
+7. Read Topology-Setup-Guide.md → follow the phase sequence
+8. ASK the user what they have done so far and what they want to tackle next
+   → Do NOT blindly trust the progress file — the user may be ahead or behind
+   → Let them tell you where they are, then verify against live state
 ```
+
+### Setup wizard for new starters
+
+When helping a **new user** start the lab for the first time:
+
+1. **Detect OS**: Ask `uname -a` (Linux/Mac) or check for WSL/GNS3 VM
+2. **Check prerequisites**:
+   - ❌ GNS3 installed? → Ask user to install from gns3.com
+   - ❌ FortiGate image? (`fgt-v7.4.12.qcow2`) → Provide download instructions
+   - ❌ Docker? → `docker ps` to check
+   - ❌ Ubuntu cloud image? → Provide URL
+3. **Create user progress file**: `progress/{username}.md` from `progress/_template_.md`
+4. **Guide through Phase 1** (Base Setup) → Phase 2 (FGT Config) → ...
 
 ### Before starting work
 
@@ -93,33 +115,34 @@ If NAT forwarding is partial, ask user to run `gns3-control forward-enable` (req
 
 ### While working
 
-- **FGT Web UI**: `https://192.168.122.2` (Primary), `https://192.168.122.3` (Secondary). Login with `admin` / no password
-- **FGT CLI**: SSH to the same IPs, or right-click → Console in GNS3
+- **FGT Web UI**: `https://<wan-ip>` (check per-user progress for WAN IPs)
+- **FGT CLI**: SSH to WAN IP, or right-click → Console in GNS3
 - **Alpine/OVS console**: right-click → Console (Telnet)
 - **Ubuntu/Webterm VNC**: right-click → Console (VNC)
 - **VPCS**: right-click → Console (Telnet)
-- **ALWAYS check actual GNS3 wiring** before making assumptions — document may be stale
+- **WAN IPs**: FGTs use DHCP, IP may change on restart — check via Console / `get system interface physical`
 
 ### After completing work
 
 ```bash
-# Commit vault changes
 cd /home/bingus/obsidian-vaults/fortigate-lab
 git add -A && git commit -m "description"
 git pull --rebase && git push
 ```
+Update `progress/{username}.md` with new phase status.
 
 ## 4. Common Pitfalls
 
 | Issue | Cause | Fix |
 |---|---|---|
-| No DHCP on LAN | FGT DHCP has `vci-match enable` with `vci-string "FortiSwitch"` — blocks non-FortiSwitch clients | `set vci-match disable` |
-| OVS not forwarding traffic | OVS Docker containers in GNS3 start with NO bridge configured | `ovs-vsctl add-br <name> && ovs-vsctl add-port <name> eth0 eth1 eth2` |
-| `setup-interfaces` not found | Not available in minimal `alpine:latest` Docker image | Use `ip addr add` and `ip route` directly |
+| No DHCP on LAN1 | FGT DHCP has `vci-match enable` with `vci-string "FortiSwitch"` — blocks non-FortiSwitch clients | `set vci-match disable` |
+| OVS not forwarding | OVS starts with NO bridge configured | `ovs-vsctl add-br br0 && ovs-vsctl add-port br0 eth0 eth1 ...` |
+| Alpine loses IP after restart | `ip addr add` is ephemeral | Create startup script or reconfigure in GNS3 |
+| Ubuntu gets 169.254.x.x | DHCP server unreachable — OVS bridge not configured | `ovs-vsctl show` on OVS node |
+| Docker container won't start | GNS3 init.sh `su` fails on stripped images (e.g. Grafana/Prometheus/alpine) | `su` binary missing or target user has `/bin/false` shell — init.sh patched on this host to fall back to root |
+| PostgreSQL fails to start | data directory exists but is not empty | Clean data dir or use `POSTGRES_INITDB_ARGS` |
 | `set dns-server1` fails | Wrong syntax on FortiOS 7.4.x | Use `set dns-service default` |
-| Alpine container loses IP after restart | `ip addr add` is ephemeral | Need to make persistent or add to startup script |
-| dnsmasq stops after container restart | Not configured as a service | Re-run `dnsmasq` after restart, or add to init |
-| Ubuntu gets 169.254.x.x | DHCP server unreachable — likely OVS bridge not configured | Check `ovs-vsctl show` on the OVS node |
+| HA config exceeds eval | HA needs 3+ interfaces but eval caps at 3 | Use two independent FGTs with transit link instead |
 
 ## 5. Quick Access
 
@@ -144,7 +167,6 @@ for link in data['topology']['links']:
 ```
 
 ### Check OVS bridge config
-From the OVS console:
 ```bash
 ovs-vsctl show
 ```
@@ -154,10 +176,11 @@ ovs-vsctl show
 ps aux | grep dnsmasq
 ```
 
-### DHCP request from Ubuntu
+### Per-user progress
 ```bash
-sudo dhcpcd enp2s0
+ls progress/
 ```
+Create new: copy `progress/_template_.md` to `progress/{username}.md`
 
 > [!tip] Credentials
-> All Docker containers use default credentials. Ubuntu VM: `ubuntu` / `gns3`. FGT web: `admin` / no password (set at first boot).
+> All Docker containers use default credentials. Ubuntu VM: `ubuntu` / `gns3`. FGT web: `admin` / no password.

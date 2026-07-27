@@ -1,0 +1,217 @@
+{
+  "main": {
+    "id": "583db0ab745dac7f",
+    "type": "split",
+    "children": [
+      {
+        "id": "d5f9d218f287d282",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "432d18a106c69098",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "03_GNS3_Labs/Topology.canvas",
+                "viewState": {
+                  "x": 664,
+                  "y": 495.5,
+                  "zoom": -0.9934932210584159
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "Topology"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "6e61ed2a554f76fd",
+    "type": "split",
+    "children": [
+      {
+        "id": "5248a75fb658e7ef",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "51020ade1713996c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "2c81b55dc15a156c",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "013e0ffe6ba8b298",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "070a70298b596c69",
+    "type": "split",
+    "children": [
+      {
+        "id": "4e862c39d776a4c1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "613d1fcf4e333459",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "03_GNS3_Labs/Topology.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Topology"
+            }
+          },
+          {
+            "id": "0b57d64af379957f",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "memory/facts.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from facts"
+            }
+          },
+          {
+            "id": "8f61bf7f9a5030bc",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "0bae3863ec53fa67",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "86778263a3907abd",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "memory/facts.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of facts"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "432d18a106c69098",
+  "lastOpenFiles": [
+    "03_GNS3_Labs/Topology-Setup-Guide.md",
+    "03_GNS3_Labs/Topology.canvas",
+    "progress/bingus.md",
+    "progress/_template_.md",
+    "03_GNS3_Labs/phase-10-logging",
+    "03_GNS3_Labs/phase-09-oci",
+    "03_GNS3_Labs/phase-08-vpn",
+    "03_GNS3_Labs/phase-07-security",
+    "03_GNS3_Labs/phase-06-docker",
+    "03_GNS3_Labs/phase-05-routing",
+    "03_GNS3_Labs/phase-04-policies",
+    "03_GNS3_Labs/phase-03-lan-services",
+    "03_GNS3_Labs/phase-02-fgt-config",
+    "03_GNS3_Labs/phase-01-base",
+    "03_GNS3_Labs/Full-Topology-Spec.md",
+    "03_GNS3_Labs/Sandbox_Expansion_Guide.md",
+    "03_GNS3_Labs/Nodes-Reference.md",
+    "memory/facts.md",
+    "memory/decisions.md",
+    "ovs-REFERENCE.md",
+    "ROADMAP.md",
+    "REQUIREMENTS.md",
+    "PROJECT.md",
+    "FORTIGATE-REFERENCE.md",
+    "_INIT_.md"
+  ]
+}

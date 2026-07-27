@@ -1,595 +1,738 @@
+# FortiGate Lab — Topology Setup Guide
+
+## Overview
+
+This guide walks through building the complete dual-FortiGate hybrid-cloud lab. Two independent FGTs with a transit link, separate LAN segments, Docker service nodes, and an OCI cloud threat simulator.
+
+### Architecture
+```
+NAT1 ──Switch1──┬──FGT-Primary (port1 WAN)──port2──OVS-LAN1──[PC1, webterm, App-Server, PostgreSQL]
+                 │                         └port3──10.0.0.1/30──┐
+                 │                                               ├──Transit (OSPF)
+                 └──FGT-Secondary (port1 WAN)──port2──OVS-LAN2──[Alpine DHCP, Ubuntu, Grafana, Prometheus, Traffic-Gen]
+                                              └port3──10.0.0.2/30──┘
+```
+
+### Phase Summary
+| Phase | What You'll Do |
+|---|---|
+| 1 — Base Setup | Create GNS3 project, place all nodes, wire them |
+| 2 — FGT Config | Interfaces, IPs, routes, DNS on both FGTs |
+| 3 — LAN Services | DHCP (FGT-P) + Alpine DHCP (LAN2), client verification |
+| 4 — Policies & NAT | LAN→WAN SNAT, inter-LAN via transit |
+| 5 — Routing | OSPF over transit link |
+| 6 — Docker Services | PostgreSQL, App-Server, Grafana, Prometheus, Traffic-Gen |
+| 7 — Security Profiles | AV, IPS, App Control, Web Filter, SSL Inspection |
+| 8 — VPN | IPsec Site-to-Site to OCI, SSL VPN portal |
+| 9 — OCI Cloud | Libreswan + threat simulator deployment |
+| 10 — Logging & Demo | Syslog → Grafana, end-to-end scenarios |
+
 ---
-title: Topology Setup Guide
-tags:
-  - lab/setup
-  - guide
-  - agent/reference
----
 
-# Topology Setup Guide
+## Phase 1: Base Setup
 
-Complete step-by-step guide to build, configure, and verify the full 15-node FortiGate hybrid-cloud lab. Designed to be followed by any AI agent assisting with this project.
+### 1.1 GNS3 Project
+Create a new project in GNS3, or open an existing one.
 
-> [!info] References
-> Read these before starting: `[[Full-Topology-Spec.md]]`, `[[Nodes-Reference.md]]`, `[[memory/facts]]`, `[[memory/decisions]]`, `[[_INIT_]]`
-
-> [!tip] Web UI preference
-> When configuring FortiGate, always use the Web UI (`https://192.168.122.2` for Primary, `https://192.168.122.3` for Secondary) unless the user requests CLI. Login with `admin` / no password.
-
-## Prerequisites
-
-- GNS3 installed and running
-- FortiGate 7.4.12 KVM image imported into GNS3 (`fgt-v7.4.12.qcow2`)
-- Ubuntu 24.04 minimal cloud image imported — base image already pre-provisioned with `ubuntu` / `gns3`
-- OVS Docker appliance available in GNS3
-- Podman/Docker available on host
-- OCI instance provisioned and reachable (Optional, for threat sim)
-
-## Phase 1 — GNS3 Topology Build
-
-### 1.1 Create GNS3 Project
-
-- Project name: `Internship`
-- Location: default GNS3 projects directory
-- No template — start from blank project
-
-### 1.2 Add Nodes
-
-| QEMU VMs | RAM | vCPU | Adapters | Image |
-|---|---|---|---|---|
-| **FGT-Primary** | 2048 MB | 1 | 8 | `fgt-v7.4.12.qcow2` |
-| **FGT-Secondary** | 2048 MB | 1 | 8 | linked clone of FGT-Primary |
-| **Ubuntu-Desktop-Client** | 2048 MB | 2 | 1 (e1000) | `ubuntu-24.04-minimal-cloudimg-amd64.img` |
-
-> [!note] Ubuntu credentials
-> The base image has been modified to include a pre-created `ubuntu` user with password `gns3` and NOPASSWD sudo. Root password also `gns3`. Cloud-init is disabled from overwriting these. Any new linked clone inherits these credentials.
-
-| Docker Nodes | Image | Adapters | Console |
+### 1.2 Nodes to Add
+| Node | Type | Image | Adapters |
 |---|---|---|---|
-| **OVS-LAN1** | `gns3/openvswitch:latest` | 16 | Telnet |
-| **OVS-LAN2** | `gns3/openvswitch:latest` | 16 | Telnet |
-| **webterm-1** | `gns3/webterm:latest` | 1 | VNC |
-| **Alpine DHCP** | `alpine:latest` | 1 | Telnet |
-| **App Server** | `python:3.12-alpine` | 1 | Telnet |
-| **PostgreSQL** | `postgres:16-alpine` | 1 | Telnet |
-| **Monitoring Stack** | `grafana/grafana` | 1 | VNC |
-| **Traffic Gen + Syslog** | `alpine:latest` | 1 | Telnet |
+| FGT-Primary | QEMU | `fgt-v7.4.12.qcow2` | 8 |
+| FGT-Secondary | QEMU | Linked clone | 8 |
+| Ubuntu-Desktop-Client-1 | QEMU | `ubuntu-24.04-minimal-cloudimg` (mod) | 1 |
+| OpenvSwitch-1 | Docker | `gns3/openvswitch:latest` | 16 |
+| OpenvSwitch-2 | Docker | `gns3/openvswitch:latest` | 16 |
+| webterm-1 | Docker | `gns3/webterm:latest` | 1 |
+| Alpine-DHCP | Docker | `alpine:latest` | 1 |
+| appServer-1 | Docker | `python:3.12-alpine` | 1 |
+| PostgreSQL-1 | Docker | `postgres:16-alpine` | 1 |
+| Grafana-1 | Docker | `grafana/grafana:latest` | 1 |
+| Prometheus-1 | Docker | `prom/prometheus:latest` | 1 |
+| Traffic-Gen-1 | Docker | `alpine:latest` | 1 |
+| PC1 | VPCS | — | — |
+| NAT1 | Cloud (virbr0) | — | — |
+| Switch1 | Ethernet switch | — | 4 |
 
-| Built-in | Type | Purpose |
-|---|---|---|
-| **NAT1** | Cloud (virbr0) | WAN access — `192.168.122.1` |
-| **PC1** | VPCS | Lightweight CLI client |
+> FGT eval limits: 3 interfaces, 3 policies, 3 routes per FGT.
 
 ### 1.3 Wiring
+**WAN Segment:**
+- NAT1 a0p0 ↔ Switch1 a0p0
+- Switch1 a0p1 ↔ FGT-Primary a0p0 (port1)
+- Switch1 a0p2 ↔ FGT-Secondary a0p0 (port1)
 
-#### WAN Segment
+**LAN1 (OVS-LAN1 = OpenvSwitch-1):**
+- FGT-Primary a1p0 (port2) ↔ OpenvSwitch-1 a0p0 (eth0)
+- OpenvSwitch-1 a1p0 (eth1) ↔ PC1 a0p0
+- OpenvSwitch-1 a2p0 (eth2) ↔ webterm-1 a0p0
+- OpenvSwitch-1 a3p0 (eth3) ↔ appServer-1 a0p0
+- OpenvSwitch-1 a4p0 (eth4) ↔ PostgreSQL-1 a0p0
 
-```
-NAT1 (port0) --- WAN Switch --- FGT-Primary (port1)
-                                WAN Switch --- FGT-Secondary (port1)
-```
+**LAN2 (OVS-LAN2 = OpenvSwitch-2):**
+- FGT-Secondary a1p0 (port2) ↔ OpenvSwitch-2 a0p0 (eth0)
+- OpenvSwitch-2 a1p0 (eth1) ↔ Alpine-DHCP a0p0
+- OpenvSwitch-2 a2p0 (eth2) ↔ Ubuntu-Desktop-Client a0p0
+- OpenvSwitch-2 a3p0 (eth3) ↔ Traffic-Gen-1 a0p0
+- OpenvSwitch-2 a4p0 (eth4) ↔ Grafana-1 a0p0
+- OpenvSwitch-2 a5p0 (eth5) ↔ Prometheus-1 a0p0
 
-> [!note] WAN Switch
-> A standard GNS3 Ethernet switch sits between NAT1 and both FGTs because NAT1 (virbr0) only has 1 port.
+**Transit Link:**
+- FGT-Primary a2p0 (port3) ↔ FGT-Secondary a2p0 (port3)
 
-#### LAN1 (FGT-Primary side — 192.168.10.0/24)
-
-```
-FGT-Primary (port2) --- OVS-LAN1 (port1)
-OVS-LAN1 (port2) --- Ubuntu-Desktop-Client (eth0)
-OVS-LAN1 (port3) --- webterm-1 (eth0)
-OVS-LAN1 (port4) --- PC1
-OVS-LAN1 (port5) --- App Server (eth0)     [Docker — future]
-OVS-LAN1 (port6) --- PostgreSQL (eth0)     [Docker — future]
-OVS-LAN1 (port7) --- Monitoring (eth0)     [Docker — future]
-OVS-LAN1 (port8) --- Traffic Gen (eth0)    [Docker — future]
-```
-
-#### LAN2 (FGT-Secondary side — 192.168.20.0/24)
-
-```
-FGT-Secondary (port2) --- OVS-LAN2 (port1)
-OVS-LAN2 (port2) --- Alpine DHCP (eth0)
-```
-
-#### HA Link
-
-```
-FGT-Primary (port3) --- FGT-Secondary (port3)   [169.254.0.0/30]
-```
-
-> [!tip] Verify wiring
-> After wiring, compare against the connection map in `[[Full-Topology-Spec.md]]`
-
-> [!note] DHCP DNS syntax
-> On FortiOS 7.4.x, use `set dns-service default` (not `set dns-server1 <ip>`). This tells the DHCP server to hand out the same DNS servers the FGT itself uses.
-
-### 1.4 Docker Image Pulls
-
-Before starting Docker-based nodes, pull images on the host:
-
+### 1.4 OVS Bridge Setup
+After starting OpenvSwitch-1 and OpenvSwitch-2:
 ```bash
-podman pull docker.io/gns3/openvswitch:latest
-podman pull docker.io/gns3/webterm:latest
-podman pull docker.io/alpine:latest
-podman pull docker.io/python:3.12-alpine
-podman pull docker.io/postgres:16-alpine
-podman pull docker.io/grafana/grafana:latest
-podman pull docker.io/prom/prometheus:latest
+# On OVS-LAN1
+ovs-vsctl add-br br0
+for port in eth0 eth1 eth2 eth3 eth4; do
+    ovs-vsctl add-port br0 $port
+done
+ovs-vsctl set-fail-mode br0 standalone
+
+# On OVS-LAN2
+ovs-vsctl add-br br0
+for port in eth0 eth1 eth2 eth3 eth4 eth5; do
+    ovs-vsctl add-port br0 $port
+done
+ovs-vsctl set-fail-mode br0 standalone
 ```
 
-## Phase 2 — Start Nodes & Verify
+### 1.5 Ubuntu Base Image (one-time)
+If using the modified Ubuntu image: user `ubuntu` / password `gns3`, NOPASSWD sudo.
 
-### 2.1 Start All Nodes
+### 1.6 Validate
+- All 15 nodes visible and green in GNS3
+- OVS bridges show all ports with `ovs-vsctl show`
+- NAT1 has internet (confirm with ping)
 
-Start all 10+ nodes in GNS3. Wait for each to finish booting before proceeding.
+---
 
-### 2.2 Verify Console Access
+## Phase 2: FGT Configuration
 
-| Node | Console | Check |
-|---|---|---|
-| FGT-Primary | Telnet | CLI prompt `FGT#` |
-| FGT-Secondary | Telnet | CLI prompt `FGT#` |
-| Ubuntu-Desktop-Client | VNC | Login with `ubuntu` / `gns3` |
-| webterm-1 | VNC | Browser UI |
-| VPCS (PC1) | Telnet | `VPCS>` prompt |
-| Alpine DHCP | Telnet | `localhost:~#` |
-| OVS nodes | Telnet | `ovs` shell |
-
-### 2.3 Verify GNS3 Host Services
-
-```bash
-gns3-control status
-gns3-control forward-enable    # enables NAT for WAN access
-```
-
-## Phase 3 — Basic FGT Configuration
-
-### 3.1 License FGT-Primary
-
-1. Obtain a free 14-day eval license from FortiCloud (or use permanent eval if available)
-2. On FGT-Primary:
-```
-execute factoryreset
-```
-3. After reboot, apply license token:
-```
-execute update-now
-```
-4. Verify:
-```
-get system license status
-```
-
-### 3.2 License FGT-Secondary
-
-Repeat the same process with a different FortiCloud account (each license is per-account).
-
-### 3.3 Initial FGT-Primary Setup
-
+### 2.1 FGT-Primary
+**Port1 — WAN (DHCP from NAT1):**
 ```
 config system interface
-  edit port1
-    set mode dhcp
-    set alias WAN
-  next
-  edit port2
-    set ip 192.168.10.1/24
-    set alias LAN1
-    set allowaccess ping https ssh
-  next
-  edit port3
-    set ip 169.254.0.1/30
-    set alias HA
-  next
-end
-
-config router static
-  edit 1
-    set device port1
-    set gateway 192.168.122.1
-  next
-end
-
-config system dns
-  set primary 8.8.8.8
-  set secondary 1.1.1.1
+    edit port1
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
 end
 ```
 
-### 3.4 Initial FGT-Secondary Setup
-
+**Port2 — LAN1:**
 ```
 config system interface
-  edit port1
-    set mode dhcp
-    set alias WAN
-  next
-  edit port2
-    set ip 192.168.20.1/24
-    set alias LAN2
-    set allowaccess ping https ssh
-  next
-  edit port3
-    set ip 169.254.0.2/30
-    set alias HA
-  next
+    edit port2
+        set mode static
+        set ip 192.168.10.1 255.255.255.0
+        set allowaccess ping
+    next
 end
+```
 
+**Port3 — Transit:**
+```
+config system interface
+    edit port3
+        set mode static
+        set ip 10.0.0.1 255.255.255.252
+        set allowaccess ping
+    next
+end
+```
+
+**Default Route:**
+```
 config router static
-  edit 1
-    set device port1
-    set gateway 192.168.122.1
-  next
+    edit 1
+        set device port1
+        set gateway 192.168.122.1
+    next
 end
+```
 
+**DNS:**
+```
 config system dns
-  set primary 8.8.8.8
-  set secondary 1.1.1.1
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
 end
 ```
 
-Verify: `execute ping 8.8.8.8`
-
-### 3.5 Verify Connectivity
-
-From FGT-Primary:
+**Verify:**
 ```
-execute ping 8.8.8.1
-execute ping 192.168.10.2       # if Ubuntu client is booted
+get system interface physical
+execute ping 8.8.8.8
 ```
 
-## Phase 4 — HA Cluster (A-P被动)
-
-### 4.1 Configure FGT-Primary (Primary)
-
+### 2.2 FGT-Secondary
+**Port1 — WAN (DHCP from NAT1):**
 ```
-config system ha
-  set group-name "FGT-HA"
-  set mode a-p
-  set password <ha-secret>
-  set hbdev port3 100
-  set session-pickup enable
-  set override disable
-  set priority 200
+config system interface
+    edit port1
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
 end
 ```
 
-After apply, FGT-Primary may restart. Wait for it to come back up.
-
-### 4.2 Configure FGT-Secondary (Secondary)
-
+**Port2 — LAN2:**
 ```
-config system ha
-  set group-name "FGT-HA"
-  set mode a-p
-  set password <ha-secret>
-  set hbdev port3 100
-  set session-pickup enable
-  set override disable
-  set priority 100
+config system interface
+    edit port2
+        set mode static
+        set ip 192.168.20.1 255.255.255.0
+        set allowaccess ping
+    next
 end
 ```
 
-### 4.3 Verify HA
-
+**Port3 — Transit:**
 ```
-get system ha status
+config system interface
+    edit port3
+        set mode static
+        set ip 10.0.0.2 255.255.255.252
+        set allowaccess ping
+    next
+end
 ```
 
-Expected: One node shows `master`, the other shows `slave`. Both show `group-name: FGT-HA`.
+**Default Route:**
+```
+config router static
+    edit 1
+        set device port1
+        set gateway 192.168.122.1
+    next
+end
+```
 
-> [!note] HA config sync
-> After HA is established, most config changes made on the primary are synced to the secondary automatically. Manage config from the primary only.
+**DNS:**
+```
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+```
 
-## Phase 5 — LAN Services
+**Verify:**
+```
+execute ping 8.8.8.8
+```
 
-### 5.1 FGT-Primary DHCP (LAN1)
+---
 
+## Phase 3: LAN Services
+
+### 3.1 FGT-Primary DHCP (LAN1)
 ```
 config system dhcp server
-  edit 1
-    set interface port2
-    set netmask 255.255.255.0
-    set default-gateway 192.168.10.1
-    set dns-service default
-    config ip-range
-      edit 1
-        set start-ip 192.168.10.100
-        set end-ip 192.168.10.200
-      next
-    end
-  next
+    edit 1
+        set interface port2
+        set netmask 255.255.255.0
+        set default-gateway 192.168.10.1
+        set dns-service default
+        config ip-range
+            edit 1
+                set start-ip 192.168.10.100
+                set end-ip 192.168.10.200
+            next
+        end
+        set lease-time 86400
+    next
 end
 ```
 
-### 5.2 Alpine DHCP Server (LAN2)
-
-> [!danger] Ask permission
-> This step modifies the GNS3 project file (JSON) and builds a custom Docker image. Present to the user before proceeding.
-
-#### Step 1 — Build custom Docker image with dnsmasq pre-installed
-
+### 3.2 Alpine DHCP Server (LAN2)
+Build custom image:
 ```bash
-mkdir -p /tmp/alpine-dhcp
-cat > /tmp/alpine-dhcp/Dockerfile << 'DOCKERFILE'
+docker build -t alpine-dhcp:latest - << 'EOF'
 FROM alpine:latest
-RUN apk update && apk add dnsmasq && rm -rf /var/cache/apk/*
-DOCKERFILE
-docker build -t alpine-dhcp:latest /tmp/alpine-dhcp
+RUN apk add --no-cache dnsmasq
+CMD ["sh", "-c", "echo 'interface=eth0' > /etc/dnsmasq.conf && echo 'dhcp-range=192.168.20.100,192.168.20.200,12h' >> /etc/dnsmasq.conf && echo 'dhcp-option=3,192.168.20.1' >> /etc/dnsmasq.conf && echo 'dhcp-option=6,8.8.8.8' >> /etc/dnsmasq.conf && ip addr add 192.168.20.2/24 dev eth0 && ip link set eth0 up && ip route add default via 192.168.20.1 && dnsmasq --no-daemon"]
+EOF
 ```
 
-#### Step 2 — Update GNS3 project file
+Set in GNS3 Docker template:
+- Image: `alpine-dhcp:latest`
+- Start command: *(none — uses CMD from Dockerfile)*
 
-Edit the Alpine-DHCP node in `Internship.gns3` to:
-- Set `image` to `alpine-dhcp:latest`
-- Set `container_id` to `null` (forces GNS3 to create a fresh container)
-- Set `start_command` to:
+### 3.3 Verify Clients
+- **PC1 (VPCS)**: enter `dhcp`, then `show ip` — should get 192.168.10.x
+- **webterm-1**: auto DHCP from FGT-Primary — check console
+- **Ubuntu Desktop**: auto DHCP from Alpine — `ip addr show enp2s0`
+- **Internet test**: `ping 8.8.8.8` from any client
 
+---
+
+## Phase 4: Policies & NAT
+
+### 4.1 FGT-Primary — LAN1 to WAN
 ```
-sh -c "ip addr add 192.168.20.2/24 dev eth0 2>/dev/null; ip link set eth0 up; ip route add default via 192.168.20.1 2>/dev/null; echo nameserver 8.8.8.8 > /etc/resolv.conf; echo interface=eth0 > /etc/dnsmasq.conf; echo dhcp-range=192.168.20.100,192.168.20.200,12h >> /etc/dnsmasq.conf; echo dhcp-option=3,192.168.20.1 >> /etc/dnsmasq.conf; echo dhcp-option=6,8.8.8.8 >> /etc/dnsmasq.conf; dnsmasq; /bin/sh"
+config firewall policy
+    edit 1
+        set name "LAN1-to-WAN"
+        set srcintf port2
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
 ```
 
-#### Step 3 — Delete old container and restart GNS3
+### 4.2 FGT-Primary — Transit to WAN
+```
+config firewall policy
+    edit 2
+        set name "Transit-to-WAN"
+        set srcintf port3
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
+```
+
+### 4.3 FGT-Secondary — LAN2 to WAN
+```
+config firewall policy
+    edit 1
+        set name "LAN2-to-WAN"
+        set srcintf port2
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
+```
+
+### 4.4 FGT-Secondary — Transit to WAN
+```
+config firewall policy
+    edit 2
+        set name "Transit-to-WAN"
+        set srcintf port3
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
+```
+
+### 4.5 DNAT (WAN → App-Server) — optional
+On FGT-Primary:
+```
+config firewall vip
+    edit "web-server"
+        set extip 192.168.122.x   # FGT-Primary WAN IP
+        set mappedip 192.168.10.10
+        set extintf port1
+        set portforward enable
+        set extport 8080
+        set mappedport 80
+    next
+end
+config firewall policy
+    edit 3
+        set name "WAN-to-AppServer"
+        set srcintf port1
+        set dstintf port2
+        set srcaddr all
+        set dstaddr web-server
+        set action accept
+        set schedule always
+        set service HTTP
+    next
+end
+```
+
+---
+
+## Phase 5: Routing (OSPF over Transit)
+
+### 5.1 FGT-Primary — OSPF
+```
+config router ospf
+    set router-id 10.0.0.1
+    config area
+        edit 0.0.0.0
+        next
+    end
+    config network
+        edit 1
+            set prefix 192.168.10.0 255.255.255.0
+            set area 0.0.0.0
+        next
+        edit 2
+            set prefix 10.0.0.0 255.255.255.252
+            set area 0.0.0.0
+        next
+    end
+end
+```
+
+### 5.2 FGT-Secondary — OSPF
+```
+config router ospf
+    set router-id 10.0.0.2
+    config area
+        edit 0.0.0.0
+        next
+    end
+    config network
+        edit 1
+            set prefix 192.168.20.0 255.255.255.0
+            set area 0.0.0.0
+        next
+        edit 2
+            set prefix 10.0.0.0 255.255.255.252
+            set area 0.0.0.0
+        next
+    end
+end
+```
+
+### 5.3 Verify OSPF
+```
+get router info ospf neighbor
+get router info ospf route
+execute ping 10.0.0.2 (from FGT-Primary)
+execute ping 192.168.20.1 (from FGT-Primary — inter-LAN)
+```
+
+### 5.4 Inter-LAN Policy (FGT-Primary — allow transit→LAN1)
+```
+config firewall policy
+    edit 3
+        set name "Transit-to-LAN1"
+        set srcintf port3
+        set dstintf port2
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+    next
+end
+```
+
+### 5.5 Inter-LAN Policy (FGT-Secondary — allow transit→LAN2)
+```
+config firewall policy
+    edit 3
+        set name "Transit-to-LAN2"
+        set srcintf port3
+        set dstintf port2
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+    next
+end
+```
+
+---
+
+## Phase 6: Docker Services
+
+### 6.1 PostgreSQL
+GNS3 template: `postgres:16-alpine`, 1 adapter.
+Environment: `POSTGRES_PASSWORD=gns3`
+
+After starting, verify:
+```bash
+docker exec GNS3.PostgreSQL-1.* ip addr add 192.168.10.11/24 dev eth0
+docker exec GNS3.PostgreSQL-1.* ip link set eth0 up
+docker exec GNS3.PostgreSQL-1.* ip route add default via 192.168.10.1
+```
+
+Create database for app:
+```
+docker exec GNS3.PostgreSQL-1.* psql -U postgres -c "CREATE DATABASE appdb;"
+```
+
+### 6.2 App-Server (Flask)
+GNS3 template: `python:3.12-alpine`, 1 adapter.
+
+After starting, configure IP:
+```bash
+docker exec GNS3.appServer-1.* ip addr add 192.168.10.10/24 dev eth0
+docker exec GNS3.appServer-1.* ip link set eth0 up
+docker exec GNS3.appServer-1.* ip route add default via 192.168.10.1
+```
+
+Deploy Flask app:
+```bash
+docker exec GNS3.appServer-1.* sh -c "pip install flask psycopg2-binary"
+docker exec GNS3.appServer-1.* sh -c "cat > /app.py << 'EOF'
+from flask import Flask
+app = Flask(__name__)
+@app.route('/')
+def hello():
+    return 'Hello from App-Server!'
+@app.route('/db')
+def db_check():
+    import psycopg2
+    try:
+        conn = psycopg2.connect(host='192.168.10.11', dbname='appdb', user='postgres', password='gns3')
+        return 'DB OK'
+    except Exception as e:
+        return f'DB Error: {e}'
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)
+EOF"
+docker exec -d GNS3.appServer-1.* python /app.py
+```
+
+### 6.3 Grafana & Prometheus
+GNS3 templates: `grafana/grafana:latest` and `prom/prometheus:latest`, 1 adapter each.
+
+After starting, configure IPs:
+```bash
+# Grafana
+docker exec GNS3.Grafana-1.* ip addr add 192.168.20.10/24 dev eth0
+docker exec GNS3.Grafana-1.* ip link set eth0 up
+docker exec GNS3.Grafana-1.* ip route add default via 192.168.20.1
+
+# Prometheus
+docker exec GNS3.Prometheus-1.* ip addr add 192.168.20.11/24 dev eth0
+docker exec GNS3.Prometheus-1.* ip link set eth0 up
+docker exec GNS3.Prometheus-1.* ip route add default via 192.168.20.1
+```
+
+### 6.4 Traffic-Gen
+GNS3 template: `alpine:latest`, 1 adapter.
 
 ```bash
-docker rm GNS3.Alpine-DHCP.<project-id>
-systemctl --user restart gns3-server.service
+docker exec GNS3.Traffic-Gen-1.* ip addr add 192.168.20.12/24 dev eth0
+docker exec GNS3.Traffic-Gen-1.* ip link set eth0 up
+docker exec GNS3.Traffic-Gen-1.* ip route add default via 192.168.20.1
 ```
 
-Then start Alpine-DHCP in GNS3. It will auto-configure IP and start dnsmasq with the correct config.
-
-#### Step 4 — Verify
-
+Install tools:
 ```bash
-# Alpine console
-ip addr show eth0          # should show 192.168.20.2/24
-ps aux | grep dnsmasq      # should show dnsmasq running
-
-# Test a client on LAN2 (Ubuntu or VPCS)
-sudo dhcpcd enp2s0         # Ubuntu
-ip addr                    # should show 192.168.20.x
+docker exec GNS3.Traffic-Gen-1.* apk add --no-cache curl busybox-extras
 ```
 
-## Phase 6 — Policies & NAT
+---
 
-> [!warning] Policy budget
-> Each FGT has only 3 policy slots. Design carefully.
+## Phase 7: Security Profiles
 
-### 6.1 FGT-Primary Policies
-
-```
-# Policy 1: LAN1 to WAN (SNAT, internet access)
-config firewall policy
-  edit 1
-    set name "LAN1-to-WAN"
-    set srcintf port2
-    set dstintf port1
-    set srcaddr "all"
-    set dstaddr "all"
-    set action accept
-    set schedule "always"
-    set service "ALL"
-    set nat enable
-  next
-end
-```
-
-### 6.2 FGT-Secondary Policies
-
-```
-# Policy 1: LAN2 to WAN (SNAT, internet access)
-config firewall policy
-  edit 1
-    set name "LAN2-to-WAN"
-    set srcintf port2
-    set dstintf port1
-    set srcaddr "all"
-    set dstaddr "all"
-    set action accept
-    set schedule "always"
-    set service "ALL"
-    set nat enable
-  next
-end
-```
-
-> [!tip] Web UI alternative
-> Go to **Policy & Objects → Firewall Policy → Create New**. Same settings. Make sure NAT is checked under Firewall/Network Options.
-
-## Phase 7 — Docker Service Nodes
-
-### 7.1 App Server (Python/Flask)
-
-Create a simple Flask app and serve it on port 80. Verify from LAN1 client.
-
-### 7.2 PostgreSQL
-
-Set up with a test database for the App Server to consume.
-
-### 7.3 Monitoring Stack
-
-Configure Prometheus to scrape FGT SNMP metrics. Configure Grafana dashboard.
-
-### 7.4 Traffic Gen + Syslog
-
-Configure the traffic generator to produce HTTP/HTTPS traffic to the App Server and OCI. Set up syslog forwarding from FGTs to this node.
-
-## Phase 8 — OCI Cloud & IPsec VPN
-
-### 8.1 Configure OCI Instance as Libreswan Endpoint
-
-Set up the OCI instance with Libreswan, listening for IPsec connections from both FGTs.
-
-### 8.2 Configure FGT IPsec Tunnels
-
-```
-config vpn ipsec phase1-interface
-  edit "to-oci"
-    set interface port1
-    set ike-version 2
-    set keylife 28800
-    set peertype any
-    set net-device enable
-    set proposal aes128-sha1
-    set remote-gw <OCI-public-IP>
-    set psk <pre-shared-key>
-  next
-end
-```
-
-### 8.3 Configure SD-WAN
-
-Route traffic to OCI through the IPsec tunnel based on application or destination rules.
-
-## Phase 9 — UTM & Security Profiles
-
-### 9.1 Antivirus
-
+### 7.1 Antivirus Profile
 ```
 config antivirus profile
-  edit "default-av"
-    config http
-      set options av
-    end
-    config ftp
-      set options av
-    end
-  next
+    edit "default-av"
+        config http
+            set options av
+            set av-scan all
+        end
+    next
 end
 ```
 
-### 9.2 IPS
-
+### 7.2 IPS Profile
 ```
 config ips sensor
-  edit "default-ips"
-    config entries
-      edit 1
-        set severity critical high medium
-      next
-    end
-  next
+    edit "default-ips"
+        config entries
+            edit 1
+                set severity critical high medium
+                set action block
+            next
+        end
+    next
 end
 ```
 
-### 9.3 Web Filter
-
+### 7.3 Web Filter Profile
 ```
 config webfilter profile
-  edit "default-wf"
-    config static-url-filter
-      set status enable
-      edit 1
-        set url "phishing.test.lab"
-        set action block
-      next
-    end
-  next
+    edit "default-wf"
+        config static-url-filter
+            set status enable
+            config entries
+                edit 1
+                    set url "phishing"
+                    set action block
+                next
+                edit 2
+                    set url "hacking-tools"
+                    set action block
+                next
+            end
+        end
+    next
 end
 ```
 
-### 9.4 Apply to Policies
+### 7.4 Application Control Profile
+```
+config application list
+    edit "default-app"
+        config entries
+            edit 1
+                set application 15892 15953 16294  # Torrent apps
+                set action block
+            next
+        end
+    next
+end
+```
 
-Attach UTM profiles to policy 1 on each FGT:
+### 7.5 SSL Inspection Profile
+```
+config firewall ssl-ssh-profile
+    edit "deep-inspection"
+        set ssl-inspection deep-inspection
+    next
+end
+```
 
+### 7.6 Apply to Policy (FGT-Primary)
 ```
 config firewall policy
-  edit 1
-    set utm-status enable
-    set av-profile "default-av"
-    set ips-sensor "default-ips"
-    set webfilter-profile "default-wf"
-  next
+    edit 1
+        set groups "default-av" "default-ips" "default-wf" "default-app"
+        set ssl-ssh-profile "deep-inspection"
+    next
+end
+```
+(Repeat on FGT-Secondary policy 1)
+
+---
+
+## Phase 8: VPN
+
+### 8.1 IPsec Site-to-Site (FGT-Primary → OCI)
+```
+config vpn ipsec phase1-interface
+    edit "to-oci"
+        set interface port1
+        set remote-gw <OCI-public-IP>
+        set proposal aes128-sha1
+        set dhgrp 2
+    next
+end
+config vpn ipsec phase2-interface
+    edit "to-oci"
+        set phase1name "to-oci"
+        set proposal aes128-sha1
+        set src-addr-type name
+        set dst-addr-type name
+        set src-name "LAN1"
+        set dst-name "OCI-LAN"
+    next
 end
 ```
 
-## Phase 10 — Verification & Demos
-
-### 10.1 Connectivity Tests
-
-| Test | Command | Expected |
-|---|---|---|
-| WAN access | `execute ping 8.8.8.1` | Reply |
-| Web access | Browse from webterm or Ubuntu | Page loads |
-| DHCP | Check client got IP in correct range | 192.168.10.x or 192.168.20.x |
-| HA failover | Stop FGT-Primary, ping from LAN2 | Traffic continues |
-| IPsec | `diagnose vpn ike gateway list` | Tunnel up |
-
-### 10.2 UTM Demos
-
-| Demo | Trigger | Expected |
-|---|---|---|
-| AV block | `curl http://<OCI>/eicar` | Block page |
-| IPS block | `curl http://<OCI>/attack?sql=payload'` | IPS alert in logs |
-| URL filter | `curl https://phishing.test.lab` | Block page |
-
-### 10.3 SNAT Verification
-
-Access OCI `/api/status` — the source IP should show the FGT's WAN IP (192.168.122.x), not the client's LAN IP.
-
-## Agent Workflow Notes
-
-### ⚠️ Critical Rule — Always Ask Permission
-**You MUST ask the user for permission before making any of these changes:**
-- Editing the GNS3 project file (`.gns3` JSON) — modifying node properties, wiring, templates
-- Building or modifying Docker images
-- Modifying QEMU/VM disk images
-- Writing config files to GNS3 nodes (Alpine, Ubuntu, etc.)
-- Running commands on the host system (iptables, docker, podman, systemctl)
-- Modifying FortiGate config (CLI or Web UI)
-- Changing network topology or wiring
-
-Present the exact command/change and ask "Should I proceed?" Wait for explicit confirmation.
-
-### Standard Procedure
-1. **Always ask the user before making changes** — present each step, wait for confirmation
-2. **Use GNS3 console** (Telnet) for FGT, Alpine, OVS config
-3. **Use VNC** for Ubuntu Desktop and webterm
-4. **Docker/Podman on host** for image management
-5. **FGT CLI** via Web UI first when possible, or SSH/Telnet
-6. **Update [[memory/progress]]** after completing each phase
-7. **After any GNS3 wiring change**, update the [[Topology.canvas]] to reflect it
-8. **After any IP/config change**, update [[Full-Topology-Spec.md]] and [[memory/facts]]
-
-### Known Pitfalls for Alpine DHCP
-- `setup-interfaces` is not available in `alpine:latest` — use `ip addr add` directly
-- `alpine:latest` does NOT include dnsmasq — must be added via custom image or `apk add`
-- Custom image `alpine-dhcp:latest` is already built locally with dnsmasq pre-installed
-- GNS3 `start_command` in the project file runs on every container start — use for network config
-- Old Docker containers must be deleted (`docker rm`) before GNS3 will create a new one with updated start_command
-- GNS3 project file must have `container_id` set to `null` for GNS3 to create a fresh container
-- dnsmasq.conf is NOT created by default — the start_command must write it via `echo` statements
-
-### Known Pitfalls for Ubuntu Desktop
-- Cloud-init was disabled in the base image; pre-created `ubuntu` user with password `gns3`
-- Netplan file must be created at `/etc/netplan/01-netcfg.yaml` with `dhcp4: true`
-- Permissions must be `chmod 600` to avoid netplan warnings
-- `sudo dhcpcd enp2s0` can be used as fallback if netplan apply doesn't get an IP
-- The VM disk persists changes across reboots (unlike Docker containers)
-
-### Known Pitfalls for GNS3
-- GNS3 server caches project state; restart with `systemctl --user restart gns3-server.service` after modifying the `.gns3` file
-- `gns3-control status` can't verify iptables rules without sudo — the PARTIAL warning is misleading if rules were already applied
-- `gns3-control forward-enable` requires fingerprint sudo (iptables rules)
-- Docker commands (`ps`, `rm`, `exec`) work without sudo; `docker build` also works
-
-## Recovery
-
-### GNS3 Control
-
-```bash
-gns3-control status          # check all services
-gns3-control start           # start GNS3 server + docker + libvirtd
-gns3-control forward-enable  # enable NAT forwarding
-gns3-control force-stop      # kill orphan processes
+### 8.2 SSL VPN Portal
+```
+config vpn ssl settings
+    set port 443
+    set servercert self-signed
+    config authentication-rule
+        edit 1
+            set groups "guest"
+            set portal "full-access"
+        next
+    end
+end
+config vpn ssl web portal
+    edit "full-access"
+        set tunnel-mode enable
+        set ip-pools "ssl-vpn-pool"
+    next
+end
+config firewall address
+    edit "ssl-vpn-pool"
+        set type iprange
+        set start-ip 10.0.2.10
+        set end-ip 10.0.2.20
+    next
+end
 ```
 
-### Backup Locations
+---
 
-| Item | Path |
-|---|---|
-| Original Ubuntu base image | `~/.local/share/gns3/images/QEMU/ubuntu-24.04-minimal-cloudimg-amd64.img.bak.*` |
-| Original project overlay | `./project-files/qemu/<uuid>/hda_disk.qcow2.bak.*` |
-| Git repo | `https://github.com/Not1Sam/fortigate-gns3-lab` |
+## Phase 9: OCI Cloud
 
+### 9.1 Deploy OCI Instance
+- Ubuntu 24.04, public IP, security group allowing IPsec (UDP 500, 4500) + HTTP/HTTPS from FGT WAN IPs
+
+### 9.2 Libreswan IPsec
+```bash
+sudo apt update && sudo apt install -y libreswan
+
+sudo tee /etc/ipsec.conf << 'EOF'
+conn fgt-primary
+    left=%defaultroute
+    leftid=<OCI-public-IP>
+    leftsubnet=<OCI-VPC-subnet>
+    right=<FGT-Primary-WAN-IP>
+    rightsubnet=192.168.10.0/24
+    ikelifetime=24h
+    lifetime=8h
+    ike=aes128-sha1-modp1024
+    phase2=aes128-sha1
+    auto=start
+EOF
+
+sudo ipsec restart
+```
+
+### 9.3 Threat Simulator
+```bash
+sudo apt install -y python3-flask socat
+# Deploy the threat simulator app (see OCI endpoints in facts.md)
+sudo python3 /opt/threat-sim/app.py &
+```
+
+---
+
+## Phase 10: Logging & Demo
+
+### 10.1 Syslog Forwarding (FGTs → Traffic-Gen)
+```
+config log syslogd setting
+    set status enable
+    set server 192.168.20.12
+    set port 514
+    set facility local7
+end
+```
+
+### 10.2 Verify Logs
+```bash
+docker exec GNS3.Traffic-Gen-1.* nc -ulvp 514
+```
+
+### 10.3 Demo Scenarios
+1. **Internet access** — PC1 / Ubuntu ping 8.8.8.8
+2. **SNAT** — traffic-gen `curl ifconfig.me` shows FGT WAN IP
+3. **Inter-LAN** — PC1 pings Ubuntu across transit link
+4. **AV block** — curl OCI `/eicar` shows block page
+5. **IPS block** — curl OCI `/attack?sql=payload` shows block
+6. **Web filter** — curl OCI `/phishing` shows block
+7. **IPsec VPN** — verify tunnel status `get vpn ipsec tunnel details`
+8. **SSL VPN** — connect from Ubuntu over SSL VPN portal
+9. **App-Server** — curl `http://192.168.10.10/` from webterm
+10. **Grafana** — `http://192.168.20.10:3000` dashboards

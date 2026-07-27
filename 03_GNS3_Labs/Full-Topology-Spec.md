@@ -1,409 +1,147 @@
-# GNS3 FortiGate Security Lab — Full Topology Specification
+# Full Topology Specification
 
-## 1. Architecture Overview
+## Architecture Overview
 
-A GNS3-based network security lab with 15 nodes (14 in GNS3 + 1 OCI VM) demonstrating FortiGate routing, NAT, IPsec VPN, HA clustering, and full FortiGuard UTM stack. An OCI free-tier VM acts as an external threat simulation platform for live security demos.
+Two independent FortiGate firewalls, each serving a separate LAN segment with its own WAN connection, OVS switch fabric, and clients. A transit link between the two FGTs provides inter-LAN routing and OSPF dynamic routing demonstration.
 
-### Design Principles
+### Key Design Principles
+- **No HA** — two independent gateways, each with its own eval license
+- **Physical LAN isolation** — OVS-LAN1 and OVS-LAN2 are completely separate
+- **Transit link** — /30 subnet between FGTs for inter-LAN traffic
+- **OSPF** — dynamic routing over the transit link
+- **All 14 nodes fit in 1 GNS3 project**
 
-- **Two separate LAN segments** (OVS-LAN1 behind FGT1, OVS-LAN2 behind FGT2) enable DHCP relay testing and cross-FGT IPsec scenarios
-- **All Docker nodes use Podman** (no sudo needed)
-- **Zero extra licenses** — everything uses built-in FortiGate features
-- **OCI instance is a real internet host** — attack traffic comes from outside the lab, proving the security stack works against genuine external threats
+## Node Inventory
 
----
+### QEMU VMs (3)
+| # | Name | Type | Image | RAM | vCPU | Adapters | Console |
+|---|---|---|---|---|---|---|---|
+| 1 | FGT-Primary | QEMU | `fgt-v7.4.12.qcow2` | 2048 MB | 1 | 8 | Telnet |
+| 2 | FGT-Secondary | QEMU | Linked clone | 2048 MB | 1 | 8 | Telnet |
+| 3 | Ubuntu-Desktop-Client-1 | QEMU | `ubuntu-24.04-minimal-cloudimg` (mod) | 2048 MB | 2 | 1 | VNC |
 
-## 2. Node Count
+### Docker Nodes (8)
+| # | Name | Image | Adapters | Console | Role |
+|---|---|---|---|---|---|
+| 4 | OpenvSwitch-1 | `gns3/openvswitch:latest` | 16 | Telnet | OVS-LAN1 switch |
+| 5 | OpenvSwitch-2 | `gns3/openvswitch:latest` | 16 | Telnet | OVS-LAN2 switch |
+| 6 | webterm-1 | `gns3/webterm:latest` | 1 | VNC | Client browser on LAN1 |
+| 7 | Alpine-DHCP | `alpine-dhcp:latest` | 1 | Telnet | DHCP server for LAN2 |
+| 8 | appServer-1 | `python:3.12-alpine` | 1 | Telnet | Flask app on LAN1 |
+| 9 | PostgreSQL-1 | `postgres:16-alpine` | 1 | Telnet | DB backend on LAN1 |
+| 10 | Grafana-1 | `grafana/grafana:latest` | 1 | VNC | Dashboards on LAN2 |
+| 11 | Prometheus-1 | `prom/prometheus:latest` | 1 | VNC | Metrics on LAN2 |
+| 12 | Traffic-Gen-1 | `alpine:latest` | 1 | Telnet | Syslog + threats on LAN2 |
 
-| Type | Count | Nodes |
+### Built-in Nodes (3)
+| # | Name | Type | Role |
 |---|---|---|---|
-| QEMU VMs | 3 | FGT-Primary, FGT-Secondary, Ubuntu Desktop |
-| Docker (Podman) | 8 | OVS-LAN1, OVS-LAN2, webterm, Alpine DHCP, App Server, PostgreSQL, Monitoring Stack, Traffic Gen+Syslog |
-| GNS3 Built-in | 3 | VPCS, NAT1, WAN Switch |
-| **Total in GNS3** | **14** | |
-| External (OCI) | 1 | Threat simulator VM |
-| **Conceptual total** | **15** | |
+| 13 | PC1 | VPCS | CLI client on LAN1 |
+| 14 | NAT1 | Cloud (virbr0) | WAN gateway 192.168.122.1 |
+| 15 | Switch1 | Ethernet switch | WAN distribution |
 
----
+## Network Addressing
 
-## 3. Network Addressing
-
-| Segment | Subnet | Gateway | DHCP Server | DHCP Range |
-|---|---|---|---|---|
-| WAN (NAT1) | `192.168.122.0/24` | `192.168.122.1` (virbr0) | virbr0 (libvirt) | `192.168.122.2-254` |
-| LAN1 (FGT1) | `192.168.10.0/24` | `192.168.10.1` (FGT1 port2) | FGT1 built-in DHCP | `192.168.10.100-200` |
-| LAN2 (FGT2) | `192.168.20.0/24` | `192.168.20.1` (FGT2 port2) | Alpine dnsmasq | `192.168.20.100-200` |
-| HA Link | `169.254.0.0/30` | — | Static | — |
-| IPsec Tunnel | `10.0.0.0/8` | — | — | — |
-| Management | `192.168.10.0/24` via FGT1 | — | — | — |
-
-### VLAN Strategy (Future Expansion)
-
-| VLAN ID | Purpose | Subnet | FGT Interface |
+| Segment | Subnet | Gateway | DHCP Server |
 |---|---|---|---|
-| 10 | LAN1 — Clients | `192.168.10.0/24` | FGT1 port2 |
-| 20 | LAN2 — Clients | `192.168.20.0/24` | FGT2 port2 |
-| — | Management | In-band via LAN1 | FGT1 port2 |
+| WAN | `192.168.122.0/24` | `192.168.122.1` (NAT1) | virbr0/libvirt |
+| LAN1 | `192.168.10.0/24` | `192.168.10.1` (FGT-P port2) | FGT-Primary (100-200) |
+| LAN2 | `192.168.20.0/24` | `192.168.20.1` (FGT-S port2) | Alpine DHCP (100-200) |
+| Transit | `10.0.0.0/30` | N/A (p2p) | Static |
+| IPsec | `10.0.1.0/24` | — | — |
 
----
-
-## 4. Node Specifications
-
-### 3.1 QEMU Nodes
-
-#### FortiGate-7.4.12 (x2)
-
-| Property | Value |
-|---|---|
-| Template | FortiGate-7.4.12 |
-| Platform | `x86_64` |
-| RAM | 2048 MB |
-| vCPU | 1 |
-| Adapters | 8 × `virtio-net-pci` |
-| Console | Telnet |
-| Disk Image | `fgt-v7.4.12.qcow2` (108 MB) |
-| Clone Mode | Linked clone |
-| Boot Priority | `c` (disk) |
-| Port Naming | `Ethernet{0}` |
-| On Close | `power_off` |
-
-**FGT-Primary Port Map**
-
-| Port | Connected To | Address | Purpose |
-|---|---|---|---|
-| port1 | NAT1 | DHCP (`192.168.122.x`) | WAN — internet access |
-| port2 | OVS-LAN1 | `192.168.10.1/24` | LAN1 — internal network |
-| port3 | FGT-Secondary port3 | `169.254.0.1/30` | HA heartbeat |
-
-**FGT-Secondary Port Map**
-
-| Port | Connected To | Address | Purpose |
-|---|---|---|---|
-| port1 | NAT1 | DHCP (`192.168.122.x`) | WAN — internet access |
-| port2 | OVS-LAN2 | `192.168.20.1/24` | LAN2 — internal network |
-| port3 | FGT-Primary port3 | `169.254.0.2/30` | HA heartbeat |
-
-#### Ubuntu Desktop Client
-
-| Property | Value |
-|---|---|
-| Template | Ubuntu-Desktop-Client |
-| Platform | `x86_64` |
-| RAM | 2048 MB |
-| vCPU | 2 |
-| Adapters | 1 × `e1000` |
-| Console | VNC |
-| Disk Image | `ubuntu-24.04-minimal-cloudimg-amd64.img` (modified) |
-| Boot Priority | `c` (disk) |
-| Extra QEMU Options | `-cpu host` |
-| Credentials | `ubuntu` / `gns3` |
-
----
-
-### 3.2 Docker Nodes (Podman)
-
-All Docker nodes run via GNS3's Podman integration. No additional configuration needed beyond pulling the specified image.
-
-#### Open vSwitch (x2)
-
-| Property | Value |
-|---|---|
-| Image | `gns3/openvswitch:latest` |
-| Adapters | 16 |
-| Console | Telnet |
-| Memory | Not allocated (kernel network stack only) |
-
-#### webterm
-
-| Property | Value |
-|---|---|
-| Image | `gns3/webterm:latest` |
-| Adapters | 1 |
-| Console | VNC (HTTP browser on port 80) |
-| Notes | Full browser environment — used for HTTP/HTTPS testing, web filter demos |
-
-#### Alpine Linux — DHCP Server
-
-| Property | Value |
-|---|---|
-| Image | `alpine:latest` (8.7 MB) |
-| Adapters | 1 |
-| Console | Telnet |
-| First Boot | `apk add dnsmasq && dnsmasq -d` |
-| DHCP Config | Range `192.168.20.100-200`, gateway `192.168.20.1`, DNS `208.67.222.222` (OpenDNS) |
-
-#### App Server (Flask + Nginx)
-
-| Property | Value |
-|---|---|
-| Image | `python:3.12-alpine` (~50 MB, to pull) |
-| Adapters | 1 |
-| Console | Telnet |
-| Internal Ports | 80 (HTTP), 443 (HTTPS via Nginx proxy), 5000 (Flask) |
-| Services | Nginx reverse proxy → Flask app |
-| App Endpoints | `/` (landing page), `/api/status` (JSON health), `/inspect` (request inspector), `/login` (simulated auth) |
-| Database Backend | PostgreSQL on `192.168.10.10:5432` |
-
-#### PostgreSQL 16
-
-| Property | Value |
-|---|---|
-| Image | `postgres:16-alpine` (297 MB, already cached) |
-| Adapters | 1 |
-| Console | Telnet |
-| Internal Port | 5432 |
-| Credentials | `app` / `app-pass` / `appdb` |
-| Storage | Ephemeral (no persistence needed) |
-
-#### Monitoring Stack (Grafana + Prometheus)
-
-| Property | Value |
-|---|---|
-| Image(s) | `grafana/grafana:latest` + `prom/prometheus:latest` (to pull) |
-| Adapters | 1 |
-| Console | VNC (HTTP) for Grafana |
-| Grafana Port | 3000 |
-| Prometheus Port | 9090 |
-| Data Sources | FGT SNMP metrics, syslog events |
-| Dashboards | Live session count, throughput graphs, blocked attacks, VPN status |
-
-#### Traffic Generator + Syslog Collector
-
-| Property | Value |
-|---|---|
-| Image | `alpine:latest` (8.7 MB, already cached) |
-| Adapters | 1 |
-| Console | Telnet |
-| Services | socat (syslog UDP 514), cron-based curl/ping/dig to App Server and OCI |
-
----
-
-### 3.3 Built-in / Other Nodes
-
-#### VPCS — PC1
-
-| Property | Value |
-|---|---|
-| Type | Built-in VPCS |
-| Console | Telnet |
-| Purpose | Lightweight CLI — ping, traceroute, basic TCP tests |
-
-#### NAT1 — GNS3 Cloud Node
-
-| Property | Value |
-|---|---|
-| Type | GNS3 Cloud (NAT) |
-| Host Interface | `virbr0` (libvirt/KVM bridge) |
-| Subnet | `192.168.122.0/24` |
-| Gateway | `192.168.122.1` |
-| DHCP Pool | `192.168.122.2–254` |
-| Internet Access | Host IP forwarding + iptables MASQUERADE on physical interface |
-
----
-
-### 3.4 OCI Threat Simulation Platform
-
-| Property | Value |
-|---|---|
-| Shape | VM.Standard.A1.Flex (ARM) or VM.Standard.E2.1.Micro (AMD free-tier) |
-| OS | Ubuntu 24.04 LTS |
-| Public IP | Ephemeral or reserved |
-| Security List | Ingress: TCP 80/443, UDP 500/4500 (IPsec), ICMP |
-| Software | Python (Flask/Gunicorn), nmap, socat, Unbound DNS, OpenSSL |
-
-**Threat Simulator Endpoints**
-
-| Endpoint | Traffic | Demo |
+### Static Assignments
+| Node | IP | Segment |
 |---|---|---|
-| `GET /inspect` | HTTP | Request inspection — shows source IP after SNAT |
-| `GET /api/status` | HTTP | JSON API response — proves API routing works |
-| `GET /eicar` | HTTP + HTTPS | EICAR test file — Antivirus blocks at FGT |
-| `GET /malware-sample` | HTTP + HTTPS | Known IPS test pattern — IPS blocks at FGT |
-| `GET /attack?sql=payload` | HTTP | SQL injection in URL — IPS signature blocks |
-| `GET /attack?xss=payload` | HTTP | XSS in URL — IPS signature blocks |
-| `GET /phishing` | HTTPS | Fake login page — Web Filter blocks by category |
-| `GET /hacking-tools` | HTTPS | Hacking tool page — Web Filter blocks by category |
-| `GET /proxy` | HTTPS | Web proxy site — Web Filter blocks by category |
-| `POST /bruteforce` | HTTPS | Login brute force — admin lockout triggers |
-| DNS `phish.test.lab` | DNS | Malicious domain — DNS Filter blocks |
+| FGT-Primary port1 | DHCP (192.168.122.x) | WAN |
+| FGT-Primary port2 | `192.168.10.1/24` | LAN1 |
+| FGT-Primary port3 | `10.0.0.1/30` | Transit |
+| FGT-Secondary port1 | DHCP (192.168.122.x) | WAN |
+| FGT-Secondary port2 | `192.168.20.1/24` | LAN2 |
+| FGT-Secondary port3 | `10.0.0.2/30` | Transit |
+| Alpine DHCP | `192.168.20.2/24` | LAN2 |
+| Ubuntu Desktop | DHCP (192.168.20.x) | LAN2 |
+| PC1 | DHCP (192.168.10.x) | LAN1 |
+| webterm-1 | DHCP (192.168.10.x) | LAN1 |
+| App-Server | Static `192.168.10.10/24` | LAN1 |
+| PostgreSQL | Static `192.168.10.11/24` | LAN1 |
+| Grafana | Static `192.168.20.10/24` | LAN2 |
+| Prometheus | Static `192.168.20.11/24` | LAN2 |
+| Traffic-Gen | Static `192.168.20.12/24` | LAN2 |
 
----
+## Port Maps & Wiring
 
-## 5. Connection Map
-
-```
-[OCI Threat Simulator]
-    │  (internet)
-[PUBLIC INTERNET]
-    │
-[NAT1 — virbr0 — 192.168.122.1/24]  (1 port)
-    │
-[WAN Switch]  (Ethernet Switch — fans out NAT1 to both FGTs)
-    │                 │
-    │                 │
-[FGT-Primary] ── HA (port3) ── [FGT-Secondary]
-    │ (port2)                      │ (port2)
-[OVS-LAN1]                   [OVS-LAN2]
-   ╱  │  ╲                     ╱  │  ╲
-[VPCS] [webterm] [App]    [DHCP] [Ubuntu] [Monitoring]
-          │                    │
-    [PostgreSQL]         [Traffic Gen + Syslog]
-```
-
-### Edge Details
-
-| # | From | To | Label | Type |
-|---|---|---|---|---|
-| 1 | OCI | PUBLIC INTERNET | — | Internet |
-| 2 | PUBLIC INTERNET | NAT1 | — | Internet |
-| 3 | NAT1 | WAN Switch | WAN uplink | Ethernet |
-| 4 | WAN Switch | FGT-Primary port1 | WAN | Ethernet |
-| 5 | WAN Switch | FGT-Secondary port1 | WAN | Ethernet |
-| 6 | FGT-Primary port3 | FGT-Secondary port3 | HA Heartbeat | Ethernet |
-| 7 | FGT-Primary port2 | OVS-LAN1 | LAN | Ethernet |
-| 8 | FGT-Secondary port2 | OVS-LAN2 | LAN | Ethernet |
-| 9 | OVS-LAN1 | VPCS | — | Ethernet |
-| 10 | OVS-LAN1 | webterm-1 | — | Ethernet |
-| 11 | OVS-LAN1 | App Server | — | Ethernet |
-| 12 | App Server | PostgreSQL | DB (5432) | Internal (container link, not a GNS3 cable) |
-| 13 | OVS-LAN2 | Alpine DHCP | — | Ethernet |
-| 14 | OVS-LAN2 | Ubuntu Client | — | Ethernet |
-| 15 | OVS-LAN2 | Monitoring Stack | — | Ethernet |
-| 16 | Monitoring Stack | Traffic Gen + Syslog | — | Internal |
-| 17 | OCI | FGT-Primary (attack) | Attack traffic | Internet |
-| 18 | OCI | FGT-Secondary (attack) | Attack traffic | Internet |
-
----
-
-## 6. Host Resource Budget
-
-| Component | RAM Estimate | Type | Running Count |
+### FGT-Primary
+| FGT Port | Adapter | Connected To | IP |
 |---|---|---|---|
-| FGT-Primary | 2048 MB | QEMU | 1 |
-| FGT-Secondary | 2048 MB | QEMU | 1 |
-| Ubuntu Desktop | 2048 MB | QEMU | 1 |
-| OVS-LAN1 | ~100 MB | Docker | 1 |
-| OVS-LAN2 | ~100 MB | Docker | 1 |
-| webterm | ~200 MB | Docker | 1 |
-| App Server | ~150 MB | Docker | 1 |
-| PostgreSQL | ~200 MB | Docker | 1 |
-| Alpine DHCP | ~20 MB | Docker | 1 |
-| Monitoring Stack | ~400 MB | Docker | 1 (combined) |
-| Traffic Gen + Syslog | ~30 MB | Docker | 1 |
-| **Total Estimated** | **~7.3 GB** | — | **11 running** |
+| port1 | a0p0 | Switch1 a1p1 | DHCP |
+| port2 | a1p0 | OVS-LAN1 a0p0 | 192.168.10.1/24 |
+| port3 | a2p0 | FGT-Secondary a2p0 | 10.0.0.1/30 |
 
-**Host System:** 32 GB RAM, 8+ cores — well within limits.
+### FGT-Secondary
+| FGT Port | Adapter | Connected To | IP |
+|---|---|---|---|
+| port1 | a0p0 | Switch1 a1p2 | DHCP |
+| port2 | a1p0 | OVS-LAN2 a0p0 | 192.168.20.1/24 |
+| port3 | a2p0 | FGT-Primary a2p0 | 10.0.0.2/30 |
 
----
-
-## 7. Docker Image Status
-
-| Image | Status | Size |
+### OVS-LAN1 (OpenvSwitch-1)
+| OVS Port | Adapter | Connected To |
 |---|---|---|
-| `alpine:latest` | ✅ Cached | 8.7 MB |
-| `postgres:16-alpine` | ✅ Cached | 297 MB |
-| `gns3/openvswitch:latest` | ✅ In GNS3 registry | — |
-| `gns3/webterm:latest` | ✅ In GNS3 registry | — |
-| `python:3.12-alpine` | ❌ Needs pull | ~50 MB |
-| `grafana/grafana:latest` | ❌ Needs pull | ~200 MB |
-| `prom/prometheus:latest` | ❌ Needs pull | ~200 MB |
+| eth0 | a0p0 | FGT-Primary a1p0 |
+| eth1 | a1p0 | PC1 a0p0 |
+| eth2 | a2p0 | webterm-1 a0p0 |
+| eth3 | a3p0 | App-Server a0p0 |
+| eth4 | a4p0 | PostgreSQL a0p0 |
 
----
-
-## 8. Execution Phases
-
-### Phase A — Core Security & Connectivity (Standalone)
-
-| Wave | Tasks |
-|---|---|
-| **1 — Build** | Create GNS3 project, add all 14 nodes, wire per topology, start all nodes, verify console access |
-| **2 — Alpine DHCP** | Console into Alpine, `apk add dnsmasq`, configure and start DHCP |
-| **3 — FGT Config** | FGT1 + FGT2: WAN DHCP, LAN static IPs, static routes, SNAT policies |
-| **4 — IPsec VPN** | Site-to-site IKEv2 IPsec between FGT1↔FGT2 |
-| **5 — UTM Profiles** | AV, IPS, Web Filter, SSL Inspection, App Control policies |
-| **6 — OCI App Deployment** | Deploy threat simulator, configure endpoints, test each |
-
-### Phase B — High Availability (Cluster)
-
-| Wave | Tasks |
-|---|---|
-| **1 — HA Config** | Clear FGT2 IPs, configure FGCP A-P with port3 heartbeat |
-| **2 — Failover Testing** | Pull FGT1 cables, verify session pickup, automated recovery |
-| **3 — Security Testing vs Cluster** | All Phase A security tests against active unit, verify logs merge |
-
----
-
-## 9. Demo Scenarios Matrix
-
-| # | Scenario | Trigger | Detection | Visible In |
-|---|---|---|---|---|
-| 1 | App availability | Ubuntu browser → App Server `192.168.10.10` | App loads | Browser + Grafana |
-| 2 | EICAR blocked | webterm → `https://OCI-IP/eicar` | AV block page | Browser + Grafana alert |
-| 3 | SQLi detected | OCI → `http://FGT1-WAN/?id=1'OR'1'=1` | IPS blocks | FGT log + Grafana alert |
-| 4 | Phishing blocked | Ubuntu → `https://OCI-IP/phishing` | Web Filter block | Block page + Grafana |
-| 5 | IPsec encrypting | VPCS pings `192.168.20.x` | Ping succeeds | Console + VPN monitor |
-| 6 | HA failover | Pull FGT1 WAN cable | Traffic continues | Ping + Grafana shows failover |
-| 7 | Attack during failover | OCI scans during switchover | No gap in coverage | FGT logs + Grafana |
-| 8 | Live auto-traffic | Traffic Gen sends requests | All policies active | Real-time Grafana graphs |
-| 9 | Syslog streaming | Every event sent | Logs in tail | Syslog console + Grafana |
-
----
-
-## 10. FortiGate Eval License — Constraints & Workarounds
-
-### Hard Limits
-| Resource | Cap | Lab Allocation |
+### OVS-LAN2 (OpenvSwitch-2)
+| OVS Port | Adapter | Connected To |
 |---|---|---|
-| Interfaces | **3** (port1, port2, port3) | All 3 used per FGT |
-| Firewall Policies | **3** | LAN→WAN, IPsec, Mgmt — fits exactly |
-| Routes | **3** | Default, LAN (auto), IPsec — fits exactly |
-| vCPU | **1** | Template-configured |
-| RAM | **2 GB** | Template-configured |
-| FortiGuard | **Not included** | See workarounds below |
-| Encryption | Low only (data plane) | AES128-SHA1 for IPsec |
+| eth0 | a0p0 | FGT-Secondary a1p0 |
+| eth1 | a1p0 | Alpine-DHCP a0p0 |
+| eth2 | a2p0 | Ubuntu-Desktop-Client a0p0 |
+| eth3 | a3p0 | Traffic-Gen a0p0 |
+| eth4 | a4p0 | Grafana a0p0 |
+| eth5 | a5p0 | Prometheus a0p0 |
 
-### UTM Workarounds (No FortiGuard)
-| Feature | Workaround | Demo Impact |
+### Others
+| Node | Adapter | Connected To |
 |---|---|---|
-| **Antivirus** | EICAR test file is hardcoded in AV engine | ✅ Block page shown |
-| **IPS** | SQLi/XSS/port-scan signatures are factory-built | ✅ Full detection |
-| **Web Filter** | Static URL filter instead of dynamic categories | ✅ Same block page |
-| **DNS Filter** | Static domain block list instead of rating | ✅ Same block effect |
-| **App Control** | Factory signatures (browsers, common protocols) | ⚠️ Limited |
-| **SSL Inspection** | Self-signed CA, no FortiGuard needed | ✅ Full functionality |
+| NAT1 | a0p0 | Switch1 a0p0 |
+| Switch1 | a0p1 | FGT-Primary a0p0 |
+| Switch1 | a0p2 | FGT-Secondary a0p0 |
 
-### Activation
-Both FGTs already have active eval licenses via separate FortiCloud accounts.
+## OCI Threat Simulator Endpoints (External)
+| Endpoint | Traffic | What It Proves |
+|---|---|---|
+| `GET /inspect` | HTTP | SNAT |
+| `GET /api/status` | HTTP | API routing |
+| `GET /eicar` | HTTP+HTTPS | AV block |
+| `GET /malware-sample` | HTTP+HTTPS | IPS block |
+| `GET /attack?sql=payload` | HTTP | IPS SQLi |
+| `GET /attack?xss=payload` | HTTP | IPS XSS |
+| `GET /phishing` | HTTPS | Web Filter |
+| `GET /hacking-tools` | HTTPS | Web Filter |
+| `GET /proxy` | HTTPS | Web Filter |
+| `POST /bruteforce` | HTTPS | Admin lockout |
+| DNS `phish.test.lab` | DNS | DNS filter |
+| `nmap -sS FGT-WAN` | TCP SYN | IPS scan detect |
 
----
+## Host Resource Budget
+| Component | RAM | Count | Total |
+|---|---|---|---|
+| FGT-Primary | 2048 MB | 1 | 2048 MB |
+| FGT-Secondary | 2048 MB | 1 | 2048 MB |
+| Ubuntu Desktop | 2048 MB | 1 | 2048 MB |
+| Docker containers | ~64 MB avg | 8 | ~512 MB |
+| GNS3 server + overhead | — | — | ~512 MB |
+| **Total** | | | **~7.3 GB** |
 
-## 11. Security Hardening Baseline
-
-Applied during Phase A config:
-
-| Area | Measure |
-|---|---|
-| Admin access | Whitelisted to LAN subnets only (`192.168.10.0/24`, `192.168.20.0/24`) |
-| Admin port | Non-default (`10443`) |
-| Admin TLS | TLS 1.2+ only |
-| SSH ciphers | ChaCha20-Poly1305, AES256-GCM only |
-| Idle timeout | 10 minutes |
-| Unused ports | N/A — all 3 available ports are in use |
-| WAN interface | Ping only — no HTTPS/SSH exposed |
-| HA authentication | PSK on heartbeat link |
-| Logging | All internet-bound traffic logged |
-| Password policy | Min length 8, complexity enabled |
-
----
-
-## 12. Reference
-
-| Resource | Location |
-|---|---|
-| Topology Diagram | `03_GNS3_Labs/Topology.canvas` |
-| Node Reference | `03_GNS3_Labs/Nodes-Reference.md` |
-| GNS3 Project | `~/GNS3/projects/d311a72f-2416-4426-9138-96ccd23fe8fd/` |
-| Images Directory | `~/GNS3/images/QEMU/` |
-| Memory — Facts | `memory/facts.md` |
-| Memory — Decisions | `memory/decisions.md` |
-| Memory — Progress | `memory/progress.md` |
+## Eval License Budget (per FGT)
+| Resource | Used | Limit |
+|---|---|---|
+| Interfaces | 3 | 3 |
+| Firewall Policies | 3 | 3 |
+| Routes | 3 | 3 |
+| vCPU | 1 | 1 |
+| RAM | 2048 MB | 2048 MB |

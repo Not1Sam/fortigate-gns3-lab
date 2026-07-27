@@ -1,7 +1,7 @@
 # Technical Facts & Topology Specs
 
 ## Environment Baseline
-- **Hypervisor**: GNS3 on Arch Linux (QEMU/KVM via libvirt + Podman for Docker)
+- **Hypervisor**: GNS3 on Linux (QEMU/KVM via libvirt + Docker)
 - **Firewall OS**: FortiOS v7.4.12 KVM (stable, works within 2 GB RAM limit)
 - **Host RAM**: 32 GB — ~7.3 GB budgeted for lab VMs
 - **GNS3 Control**: `gns3-control` script at `~/.local/bin/gns3-control`
@@ -14,9 +14,9 @@
 ### Hard Limits (enforced by license)
 | Resource | Cap | Lab Allocation |
 |---|---|---|
-| Interfaces | **3** (port1, port2, port3) | port1=WAN, port2=LAN, port3=HA — all used |
-| Firewall Policies | **3** | LAN→WAN (SNAT+UTM), IPsec tunnel, mgmt access |
-| Routes | **3** | Default WAN route, LAN subnet (auto), IPsec VPN route |
+| Interfaces | **3** (port1, port2, port3) | port1=WAN, port2=LAN, port3=transit |
+| Firewall Policies | **3** | LAN→WAN (SNAT), transit→WAN, IPsec/VPN |
+| Routes | **3** | Default WAN route, LAN subnet, transit subnet |
 | vCPU | **1** | Template configured to 1 |
 | RAM | **2 GB** | Template configured to 2048 MB |
 | VDOMs | **2** (root admin + 1 traffic) | Not used in current design |
@@ -42,10 +42,10 @@
 | Segment | Subnet | Gateway | DHCP |
 |---|---|---|---|
 | WAN (NAT1) | `192.168.122.0/24` | `192.168.122.1` (virbr0) | virbr0/libvirt |
-| LAN1 (FGT1) | `192.168.10.0/24` | `192.168.10.1` (FGT1 port2) | FGT1 built-in DHCP |
-| LAN2 (FGT2) | `192.168.20.0/24` | `192.168.20.1` (FGT2 port2) | Alpine dnsmasq |
-| HA Link | `169.254.0.0/30` | — | Static |
-| IPsec Tunnel | `10.0.0.0/8` | — | — |
+| LAN1 (FGT-Primary) | `192.168.10.0/24` | `192.168.10.1` (FGT-P port2) | FGT-P built-in DHCP |
+| LAN2 (FGT-Secondary) | `192.168.20.0/24` | `192.168.20.1` (FGT-S port2) | Alpine dnsmasq |
+| Transit | `10.0.0.0/30` | — | Static |
+| IPsec Tunnel | `10.0.1.0/24` | — | — |
 
 ## Topology — 14 Nodes
 
@@ -79,16 +79,16 @@
 ### FGT-Primary
 | Port | Connected To | Address |
 |---|---|---|
-| port1 | NAT1 | DHCP (`192.168.122.x`) |
+| port1 | Switch1 (NAT1) | DHCP (`192.168.122.x`) |
 | port2 | OVS-LAN1 | `192.168.10.1/24` |
-| port3 | FGT-Secondary port3 | `169.254.0.1/30` (HA) |
+| port3 | FGT-Secondary port3 | `10.0.0.1/30` (transit) |
 
 ### FGT-Secondary
 | Port | Connected To | Address |
 |---|---|---|
-| port1 | NAT1 | DHCP (`192.168.122.x`) |
+| port1 | Switch1 (NAT1) | DHCP (`192.168.122.x`) |
 | port2 | OVS-LAN2 | `192.168.20.1/24` |
-| port3 | FGT-Primary port3 | `169.254.0.2/30` (HA) |
+| port3 | FGT-Primary port3 | `10.0.0.2/30` (transit) |
 
 ## OCI Threat Simulator Endpoints
 | Endpoint | Traffic | What It Proves |
@@ -118,12 +118,11 @@
 | webterm | — | — | VNC, no auth |
 
 > [!tip] Ubuntu credentials are persistent
-> The GNS3 base image (`ubuntu-24.04-minimal-cloudimg-amd64.img`) has been modified with the ubuntu user pre-created. Any new linked clone node inherits these credentials. See [[Topology-Setup-Guide]] for details.
+> The GNS3 base image (`ubuntu-24.04-minimal-cloudimg-amd64.img`) has been modified with the ubuntu user pre-created. Any new linked clone node inherits these credentials.
 
 ## Key Constraints Summary
 1. **2 FortiCloud accounts needed** — one eval license per account
 2. **3 policies each FGT** — forces efficient policy design
-3. **3 routes each FGT** — no room for dynamic routing
+3. **3 routes each FGT** — transit + default + LAN = 3
 4. **No FortiGuard** — UTM uses factory signatures + static lists
-5. **No sudo on host** — all Docker via Podman, no package installs
-6. **Low encryption data plane** — IPsec uses AES128-SHA1, not AES256-GCM
+5. **Low encryption data plane** — IPsec uses AES128-SHA1, not AES256-GCM

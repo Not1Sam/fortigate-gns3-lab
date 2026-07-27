@@ -1,51 +1,50 @@
-# Nodes Reference — GNS3 FortiGate Lab
+# Quick Node Reference
 
-## All 14 GNS3 Nodes (+1 WAN Switch)
+## QEMU VMs
+| Name | Image | RAM | Console | Credentials |
+|---|---|---|---|---|
+| FGT-Primary | `fgt-v7.4.12.qcow2` | 2 GB | Telnet | `admin` / no password |
+| FGT-Secondary | Linked clone | 2 GB | Telnet | `admin` / no password |
+| Ubuntu Desktop | `ubuntu-24.04-minimal-cloudimg` (mod) | 2 GB | VNC | `ubuntu` / `gns3` |
 
-| # | Node Name | Template | Type | RAM | Adapters | Console | Image |
-|---|---|---|---|---|---|---|---|
-| 1 | **FGT-Primary** | FortiGate-7.4.12 | QEMU | 2048 MB | 8 (virtio) | Telnet | `fgt-v7.4.12.qcow2` |
-| 2 | **FGT-Secondary** | FortiGate-7.4.12 | QEMU | 2048 MB | 8 (virtio) | Telnet | linked clone (same image) |
-| 3 | **Ubuntu-Client** | Ubuntu-Desktop-Client | QEMU | 2048 MB | 1 (e1000) | VNC | `ubuntu-24.04-minimal-cloudimg.img` (mod.) |
-| 4 | **OVS-LAN1** | Open vSwitch | Docker | — | 16 | Telnet | `gns3/openvswitch:latest` |
-| 5 | **OVS-LAN2** | Open vSwitch | Docker | — | 16 | Telnet | `gns3/openvswitch:latest` |
-| 6 | **webterm-1** | webterm | Docker | — | 1 | VNC | `gns3/webterm:latest` |
-| 7 | **Alpine DHCP** | Alpine Linux | Docker | — | 1 | Telnet | `alpine:latest` |
-| 8 | **App Server** | *(to create)* | Docker | — | 1 | Telnet | `python:3.12-alpine` *(to pull)* |
-| 9 | **PostgreSQL** | *(to create)* | Docker | — | 1 | Telnet | `postgres:16-alpine` |
-| 10 | **Monitoring Stack** | *(to create)* | Docker | — | 1 | VNC/HTTP | `grafana/grafana` + `prom/prometheus` |
-| 11 | **Traffic Gen + Syslog** | *(to create)* | Docker | — | 1 | Telnet | `alpine:latest` |
-| 12 | **PC1** | VPCS | Built-in | — | — | Telnet | Built-in |
-| 13 | **NAT1** | Cloud (NAT) | Built-in | — | — | — | `virbr0` host bridge |
-| 14 | **WAN Switch** | Ethernet Switch | Built-in | — | 4+ | — | Built-in |
-| 15 | **OCI Instance** | *(outside GNS3)* | Cloud VM | 1–6 GB | — | SSH | Ubuntu 24.04 |
+## Docker Nodes
+| Name | Image | Adapters | Console | Purpose |
+|---|---|---|---|---|
+| OpenvSwitch-1 | `gns3/openvswitch:latest` | 16 | Telnet | LAN1 switch fabric |
+| OpenvSwitch-2 | `gns3/openvswitch:latest` | 16 | Telnet | LAN2 switch fabric |
+| webterm-1 | `gns3/webterm:latest` | 1 | VNC | Browser on LAN1 |
+| Alpine-DHCP | `alpine-dhcp:latest` | 1 | Telnet | DHCP on LAN2 |
+| appServer-1 | `python:3.12-alpine` | 1 | Telnet | Flask app on LAN1 |
+| PostgreSQL-1 | `postgres:16-alpine` | 1 | Telnet | DB backend |
+| Grafana-1 | `grafana/grafana:latest` | 1 | VNC | Dashboards on LAN2 |
+| Prometheus-1 | `prom/prometheus:latest` | 1 | VNC | Metrics on LAN2 |
+| Traffic-Gen-1 | `alpine:latest` | 1 | Telnet | Syslog + threats on LAN2 |
 
-## Port Summary
+## Built-in Nodes
+| Name | Type | Purpose |
+|---|---|---|
+| PC1 | VPCS | CLI client on LAN1 |
+| NAT1 | Cloud (virbr0) | WAN gateway |
+| Switch1 | Ethernet switch | WAN distribution |
 
-| Node | Connected Ports |
-|---|---|
-| NAT1 | 1 port → WAN Switch |
-| WAN Switch | NAT1, FGT-Primary port1, FGT-Secondary port1 |
-| FGT-Primary | port1→WAN Switch, port2→OVS-LAN1, port3→FGT-Secondary port3 |
-| FGT-Secondary | port1→WAN Switch, port2→OVS-LAN2, port3→FGT-Primary port3 |
-| OVS-LAN1 | FGT1 port2, VPCS, webterm, App Server |
-| OVS-LAN2 | FGT2 port2, Alpine DHCP, Ubuntu Client, Monitoring Stack |
+## IP Assignments
+| Node | IP | Subnet |
+|---|---|---|
+| FGT-Primary port1 | DHCP | WAN |
+| FGT-Primary port2 | 192.168.10.1/24 | LAN1 |
+| FGT-Primary port3 | 10.0.0.1/30 | Transit |
+| FGT-Secondary port1 | DHCP | WAN |
+| FGT-Secondary port2 | 192.168.20.1/24 | LAN2 |
+| FGT-Secondary port3 | 10.0.0.2/30 | Transit |
+| Alpine DHCP | 192.168.20.2/24 | LAN2 |
+| App-Server | 192.168.10.10/24 | LAN1 |
+| PostgreSQL | 192.168.10.11/24 | LAN1 |
+| Grafana | 192.168.20.10/24 | LAN2 |
+| Prometheus | 192.168.20.11/24 | LAN2 |
+| Traffic-Gen | 192.168.20.12/24 | LAN2 |
 
-## Docker Images to Pull
-
-```bash
-podman pull python:3.12-alpine
-podman pull grafana/grafana:latest
-podman pull prom/prometheus:latest
-```
-
-## Credentials
-
-| Node | User | Password | Method |
-|---|---|---|---|
-| Ubuntu Client | `ubuntu` | `gns3` | SSH / VNC console |
-| Alpine DHCP | `root` | *(none, set on first boot)* | Telnet console |
-| App Server | `root` | *(none)* | Telnet console |
-| PostgreSQL | `app` | `app-pass` | Internal DB auth |
-| FGT Admin | `admin` | *(set during setup)* | Telnet / HTTPS |
-| Grafana | `admin` | `admin` | VNC → HTTP 3000 |
+## FGT Web UI
+| FGT | WAN IP | URL |
+|---|---|---|
+| FGT-Primary | 192.168.122.x (DHCP) | `https://<wan-ip>` |
+| FGT-Secondary | 192.168.122.x (DHCP) | `https://<wan-ip>` |
