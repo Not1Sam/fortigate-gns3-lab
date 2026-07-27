@@ -282,38 +282,535 @@ EOF
 
 ---
 
-## Step 3-12: Configure the Lab
+---
 
-The FortiGate and service configuration steps are OS-independent. Follow the sections from the Linux guide:
+## Step 3: Configure FGT-Primary
 
-| Step | What To Do | Linux Guide Section |
-|---|---|---|
-| **3** | FGT-Primary interfaces, route, DNS | Step 3.1-3.4 |
-| **4** | FGT-Secondary interfaces, route, DNS | Step 4.1-4.4 |
-| **5** | DHCP (FGT-P + Alpine), verify clients | Step 5.1-5.4 |
-| **6** | Firewall policies, SNAT | Step 6.1-6.3 |
-| **7** | OSPF routing, inter-LAN policies | Step 7.1-7.4 |
-| **8** | Docker service IP config | Step 8.1-8.5 |
-| **9** | Security profiles (AV, IPS, Web Filter) | Step 9.1-9.6 |
-| **10** | IPsec + SSL VPN | Step 10.1-10.2 |
-| **11** | OCI cloud deployment | Step 11.1-11.4 |
-| **12** | Syslog + demo scenarios | Step 12.1-12.3 |
+Connect via right-click → Console (Telnet). At the `#` prompt, paste each block.
 
-> **Docker note**: On Windows, `docker exec` commands must run from the GNS3 VM. Instead, right-click each Docker node → Console (Telnet) and configure IPs directly in the container shell:
-> ```bash
-> ip addr add <IP>/24 dev eth0
-> ip link set eth0 up
-> ip route add default via <gateway>
-> ```
+**Interfaces, route, and DNS:**
+```
+config system interface
+    edit port1
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
+    edit port2
+        set mode static
+        set ip 192.168.10.1 255.255.255.0
+        set allowaccess ping
+    next
+    edit port3
+        set mode static
+        set ip 10.0.0.1 255.255.255.252
+        set allowaccess ping
+    next
+end
+config router static
+    edit 1
+        set device port1
+        set gateway 192.168.122.1
+    next
+end
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+```
 
-### Docker Service IPs to Set
-| Container | IP | Gateway |
-|---|---|---|
-| PostgreSQL-1 | 192.168.10.11/24 | 192.168.10.1 |
-| appServer-1 | 192.168.10.10/24 | 192.168.10.1 |
-| Grafana-1 | 192.168.20.10/24 | 192.168.20.1 |
-| Prometheus-1 | 192.168.20.11/24 | 192.168.20.1 |
-| Traffic-Gen-1 | 192.168.20.12/24 | 192.168.20.1 |
+**Verify:** `execute ping 8.8.8.8` — should get replies.
+
+---
+
+## Step 4: Configure FGT-Secondary
+
+```
+config system interface
+    edit port1
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
+    edit port2
+        set mode static
+        set ip 192.168.20.1 255.255.255.0
+        set allowaccess ping
+    next
+    edit port3
+        set mode static
+        set ip 10.0.0.2 255.255.255.252
+        set allowaccess ping
+    next
+end
+config router static
+    edit 1
+        set device port1
+        set gateway 192.168.122.1
+    next
+end
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+```
+
+**Verify:** `execute ping 8.8.8.8`
+
+---
+
+## Step 5: LAN Services
+
+### 5.1 DHCP on FGT-Primary (LAN1)
+> **Important**: FortiGate DHCP has `vci-match enable` by default, which blocks non-FortiSwitch devices.
+> Add `set vci-match disable` if clients don't get IPs.
+
+```
+config system dhcp server
+    edit 1
+        set interface port2
+        set netmask 255.255.255.0
+        set default-gateway 192.168.10.1
+        set dns-service default
+        set vci-match disable
+        config ip-range
+            edit 1
+                set start-ip 192.168.10.100
+                set end-ip 192.168.10.200
+            next
+        end
+        set lease-time 86400
+    next
+end
+```
+
+### 5.2 Test LAN1 DHCP
+Open PC1 console: `dhcp` then `show ip` — should show 192.168.10.x.
+
+### 5.3 Alpine DHCP (LAN2)
+The custom Alpine-DHCP container handles DHCP for LAN2 automatically (built in Step 2.6).
+Start the Alpine-DHCP node, then verify from Ubuntu:
+```bash
+ip addr show enp2s0   # Should show 192.168.20.x
+ping 8.8.8.8
+```
+
+---
+
+## Step 6: Firewall Policies & NAT
+
+**FGT-Primary:**
+```
+config firewall policy
+    edit 1
+        set name "LAN1-to-WAN"
+        set srcintf port2
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+    edit 2
+        set name "Transit-to-WAN"
+        set srcintf port3
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
+```
+
+**FGT-Secondary:**
+```
+config firewall policy
+    edit 1
+        set name "LAN2-to-WAN"
+        set srcintf port2
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+    edit 2
+        set name "Transit-to-WAN"
+        set srcintf port3
+        set dstintf port1
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+        set nat enable
+    next
+end
+```
+
+**Verify SNAT:** `curl ifconfig.me` from Traffic-Gen console → shows FGT-Secondary's WAN IP.
+
+---
+
+## Step 7: OSPF Routing
+
+**FGT-Primary:**
+```
+config router ospf
+    set router-id 10.0.0.1
+    config area
+        edit 0.0.0.0
+    next
+    config network
+        edit 1
+            set prefix 192.168.10.0 255.255.255.0
+            set area 0.0.0.0
+        next
+        edit 2
+            set prefix 10.0.0.0 255.255.255.252
+            set area 0.0.0.0
+        next
+    end
+end
+```
+
+**FGT-Secondary:**
+```
+config router ospf
+    set router-id 10.0.0.2
+    config area
+        edit 0.0.0.0
+    next
+    config network
+        edit 1
+            set prefix 192.168.20.0 255.255.255.0
+            set area 0.0.0.0
+        next
+        edit 2
+            set prefix 10.0.0.0 255.255.255.252
+            set area 0.0.0.0
+        next
+    end
+end
+```
+
+**Inter-LAN policies:**
+```
+# On FGT-Primary — Transit-to-LAN1
+config firewall policy
+    edit 3
+        set name "Transit-to-LAN1"
+        set srcintf port3
+        set dstintf port2
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+    next
+end
+
+# On FGT-Secondary — Transit-to-LAN2
+config firewall policy
+    edit 3
+        set name "Transit-to-LAN2"
+        set srcintf port3
+        set dstintf port2
+        set srcaddr all
+        set dstaddr all
+        set action accept
+        set schedule always
+        set service ALL
+    next
+end
+```
+
+**Verify:** `get router info ospf neighbor` from either FGT.
+
+---
+
+## Step 8: Docker Services
+
+On Windows, configure Docker container IPs via **right-click → Console (Telnet)** on each container, then run:
+
+**PostgreSQL-1:**
+```bash
+ip addr add 192.168.10.11/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.10.1
+```
+Then create the database (from PostgreSQL container console):
+```bash
+psql -U postgres -c "CREATE DATABASE appdb;"
+```
+
+**appServer-1:**
+```bash
+ip addr add 192.168.10.10/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.10.1
+pip install flask psycopg2-binary
+```
+
+Then deploy the Flask app (from appServer-1 console):
+```bash
+cat > /app.py << 'EOF'
+from flask import Flask
+app = Flask(__name__)
+@app.route('/')
+def hello():
+    return 'Hello from App-Server!'
+@app.route('/db')
+def db_check():
+    import psycopg2
+    try:
+        conn = psycopg2.connect(host='192.168.10.11', dbname='appdb', user='postgres', password='gns3')
+        return 'DB OK'
+    except Exception as e:
+        return f'DB Error: {e}'
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)
+EOF
+python /app.py &
+```
+
+**Grafana-1:**
+```bash
+ip addr add 192.168.20.10/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+```
+
+**Prometheus-1:**
+```bash
+ip addr add 192.168.20.11/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+```
+
+**Traffic-Gen-1:**
+```bash
+ip addr add 192.168.20.12/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+apk add --no-cache curl busybox-extras
+```
+
+**Verify:** Open webterm-1 VNC console, browse to `http://192.168.10.10/`.
+
+---
+
+## Step 9: Security Profiles
+
+Apply these on **both FGTs** via their Telnet consoles:
+
+```
+config antivirus profile
+    edit "default-av"
+        config http
+            set options av
+            set av-scan all
+        end
+    next
+end
+config ips sensor
+    edit "default-ips"
+        config entries
+            edit 1
+                set severity critical high medium
+                set action block
+            next
+        end
+    next
+end
+config webfilter profile
+    edit "default-wf"
+        config static-url-filter
+            set status enable
+            config entries
+                edit 1
+                    set url "phishing"
+                    set action block
+                next
+                edit 2
+                    set url "hacking-tools"
+                    set action block
+                next
+            end
+        end
+    next
+end
+config application list
+    edit "default-app"
+        config entries
+            edit 1
+                set application 15892 15953 16294
+                set action block
+            next
+        end
+    next
+end
+config firewall ssl-ssh-profile
+    edit "deep-inspection"
+        set ssl-inspection deep-inspection
+    next
+end
+config firewall policy
+    edit 1
+        set groups "default-av" "default-ips" "default-wf" "default-app"
+        set ssl-ssh-profile "deep-inspection"
+    next
+end
+```
+
+---
+
+## Step 10: VPN
+
+**IPsec Site-to-Site (FGT-Primary → OCI):**
+```
+config vpn ipsec phase1-interface
+    edit "to-oci"
+        set interface port1
+        set remote-gw <OCI-public-IP>
+        set proposal aes128-sha1
+        set dhgrp 2
+    next
+end
+config vpn ipsec phase2-interface
+    edit "to-oci"
+        set phase1name "to-oci"
+        set proposal aes128-sha1
+        set src-addr-type name
+        set dst-addr-type name
+        set src-name "LAN1"
+        set dst-name "OCI-LAN"
+    next
+end
+```
+
+**SSL VPN Portal:**
+```
+config vpn ssl settings
+    set port 443
+    set servercert self-signed
+    config authentication-rule
+        edit 1
+            set groups "guest"
+            set portal "full-access"
+        next
+    end
+end
+config vpn ssl web portal
+    edit "full-access"
+        set tunnel-mode enable
+        set ip-pools "ssl-vpn-pool"
+    next
+end
+config firewall address
+    edit "ssl-vpn-pool"
+        set type iprange
+        set start-ip 10.0.2.10
+        set end-ip 10.0.2.20
+    next
+end
+```
+
+---
+
+## Step 11: OCI Cloud Integration
+
+1. Deploy Ubuntu 24.04 on Oracle Cloud (or any cloud provider)
+2. Assign a public IP
+3. Open security group: UDP 500/4500 from FGT WAN IPs (IPsec), TCP 80/443 from FGT WAN IPs (threat sim)
+
+**On the OCI instance:**
+```bash
+ssh ubuntu@<oci-public-ip>
+sudo apt update && sudo apt install -y libreswan
+
+sudo tee /etc/ipsec.conf << 'EOF'
+conn fgt-primary
+    left=%defaultroute
+    leftid=<OCI-public-IP>
+    leftsubnet=<OCI-VPC-subnet>
+    right=<FGT-Primary-WAN-IP>
+    rightsubnet=192.168.10.0/24
+    ikelifetime=24h
+    lifetime=8h
+    ike=aes128-sha1-modp1024
+    phase2=aes128-sha1
+    auto=start
+EOF
+
+sudo ipsec restart
+sudo apt install -y python3-flask socat
+
+sudo tee /opt/threat-sim/app.py << 'EOF'
+from flask import Flask, request
+app = Flask(__name__)
+@app.route('/')
+def index(): return 'OCI Threat Simulator'
+@app.route('/eicar')
+def eicar(): return 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
+@app.route('/attack')
+def attack():
+    sql = request.args.get('sql', '')
+    xss = request.args.get('xss', '')
+    if sql: return f'SIMULATED SQLi: {sql}'
+    if xss: return f'SIMULATED XSS: {xss}'
+    return 'No payload'
+@app.route('/phishing')
+def phishing(): return '<html><title>phishing-login</title><body>Fake Bank Login</body></html>'
+@app.route('/inspect')
+def inspect(): return f'Your IP: {request.remote_addr}'
+@app.route('/hacking-tools')
+def hacking(): return 'Blocked tools page'
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)
+EOF
+
+python3 /opt/threat-sim/app.py &
+```
+
+**Verify tunnel:** From FGT-Primary: `get vpn ipsec tunnel details` → should show `up`.
+
+---
+
+## Step 12: Logging & Demo
+
+**Syslog forwarding (both FGTs):**
+```
+config log syslogd setting
+    set status enable
+    set server 192.168.20.12
+    set port 514
+    set facility local7
+end
+```
+
+**Verify:** From Traffic-Gen console: `nc -ulvp 514` — logs appear after traffic.
+
+**Demo scenarios:**
+| # | Test | How | Expected Result |
+|---|---|---|---|
+| 1 | Internet access | `ping 8.8.8.8` from any client | Replies received |
+| 2 | SNAT | `curl ifconfig.me` from Traffic-Gen | Shows FGT WAN IP |
+| 3 | Inter-LAN | `ping 192.168.20.1` from FGT-Primary | Success via transit |
+| 4 | App-Server | Browse `http://192.168.10.10/` | "Hello from App-Server!" |
+| 5 | DB check | Browse `http://192.168.10.10/db` | "DB OK" |
+| 6 | Grafana | Browse `http://192.168.20.10:3000` | Login page |
+| 7 | Prometheus | Browse `http://192.168.20.11:9090` | UI loads |
+| 8 | AV block | Curl `/eicar` from LAN client | FGT blocks with warning |
+| 9 | IPS block | Curl `/attack?sql=payload` | FGT blocks with warning |
+| 10 | Web filter | Curl `/phishing` | FGT blocks with warning |
+| 11 | IPsec | `get vpn ipsec tunnel details` | Tunnel is up |
+| 12 | SSL VPN | Connect from Ubuntu browser | VPN session established |
 
 ---
 

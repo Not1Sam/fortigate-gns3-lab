@@ -77,6 +77,8 @@ end
 ```
 
 ### 3.4 DHCP Server (LAN1)
+> **Important**: Add `set vci-match disable` if clients don't get IPs — FortiGate blocks non-FortiSwitch by default.
+
 ```
 config system dhcp server
     edit 1
@@ -84,6 +86,7 @@ config system dhcp server
         set netmask 255.255.255.0
         set default-gateway 192.168.10.1
         set dns-service default
+        set vci-match disable
         config ip-range
             edit 1
                 set start-ip 192.168.10.100

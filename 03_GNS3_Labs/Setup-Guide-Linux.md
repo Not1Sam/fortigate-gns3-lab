@@ -440,6 +440,9 @@ execute ping 8.8.8.8
 ## Step 5: LAN Services
 
 ### 5.1 DHCP on FGT-Primary (LAN1)
+> **Important**: FortiGate DHCP has `vci-match enable` by default, which blocks non-FortiSwitch devices.
+> Add `set vci-match disable` if clients don't get IPs.
+
 ```
 config system dhcp server
     edit 1
@@ -447,6 +450,7 @@ config system dhcp server
         set netmask 255.255.255.0
         set default-gateway 192.168.10.1
         set dns-service default
+        set vci-match disable
         config ip-range
             edit 1
                 set start-ip 192.168.10.100
@@ -931,7 +935,7 @@ sudo ipsec restart
 ```bash
 sudo apt install -y python3-flask socat
 sudo tee /opt/threat-sim/app.py << 'EOF'
-from flask import Flask
+from flask import Flask, request
 app = Flask(__name__)
 @app.route('/')
 def index(): return 'OCI Threat Simulator'
@@ -939,13 +943,17 @@ def index(): return 'OCI Threat Simulator'
 def eicar(): return 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
 @app.route('/attack')
 def attack():
-    payload = __import__('flask').request.args.get('sql', '')
-    if payload: return f'SIMULATED SQLi: {payload}'
+    sql = request.args.get('sql', '')
+    xss = request.args.get('xss', '')
+    if sql: return f'SIMULATED SQLi: {sql}'
+    if xss: return f'SIMULATED XSS: {xss}'
     return 'No payload'
 @app.route('/phishing')
 def phishing(): return '<html><title>phishing-login</title><body>Fake Bank Login</body></html>'
 @app.route('/inspect')
-def inspect(): return f'Your IP: {__import__("flask").request.remote_addr}'
+def inspect(): return f'Your IP: {request.remote_addr}'
+@app.route('/hacking-tools')
+def hacking(): return 'Blocked tools page'
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
 EOF
