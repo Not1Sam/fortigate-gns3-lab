@@ -12,11 +12,17 @@ To ensure continuity and maximum effectiveness, follow these guidelines strictly
     *   `[[progress]]` (Completed tasks and next steps)
     *   `[[daily_objectives]]` (Daily study and lab task lists)
 2.  **Log Your Session**: Open `[[log]]` (located in the `memory/` directory) and append a log entry recording your name, the date/time, and your objectives for this session.
-3.  **Verify GNS3 Virtual Environment**: Verify the status of the emulated lab backend.
-    *   Check status using: `gns3-control status`.
-    *   If services are dead, start them using: `gns3-control start` (starts GNS3 server, docker, and libvirtd).
-    *   If NAT forwarding is inactive, enable it using: `gns3-control forward-enable`.
-4.  **Enforce Gating Rules**: Check the progress of tasks in `[[daily_objectives]]`.
+3.  **Detect OS & Select Guide**: Determine the user's operating system, then read the correct setup guide.
+    *   **On Linux/macOS** (native GNS3): Read `03_GNS3_Labs/Setup-Guide-Linux.md`. Rename `Setup-Guide-Windows.md` to `Setup-Guide-Windows.md.ignore` so future agents don't get confused.
+    *   **On Windows** (GNS3 VM): Read `03_GNS3_Labs/Setup-Guide-Windows.md`. Rename `Setup-Guide-Linux.md` to `Setup-Guide-Linux.md.ignore`.
+    *   Also read `03_GNS3_Labs/Device-Setup-Guide.md` for per-node config reference.
+    *   To detect: run `uname` on Linux/Mac, or check for `SystemRoot` / `COMSPEC` env vars on Windows.
+4.  **Verify GNS3 Virtual Environment**: Verify the status of the emulated lab backend.
+    *   **Linux**: Check status using `gns3-control status` or `systemctl status gns3`.
+    *   **Windows**: Verify GNS3 VM is running in VMware/VirtualBox and is reachable.
+    *   If services are dead, start them.
+    *   If NAT forwarding is inactive, enable it.
+5.  **Enforce Gating Rules**: Check the progress of tasks in `[[daily_objectives]]`.
     *   **Rule 1 (Previous Work Gating)**: If any task from a previous day is unchecked, you **must not** allow the user to start today's tasks. Block new task setups until yesterday's objectives are marked done.
     *   **Rule 2 (No Rushing Ahead)**: You **must not** check off or allow execution of future days' tasks early. Keep progression to one day at a time.
 

@@ -130,3 +130,17 @@ This log tracks the history of AI agents assisting in this project, including ti
     - Added prominent "⚠️ Always Ask Permission" rule in _INIT_.md with explicit list of changes requiring user approval
     - Updated progress.md to reflect current verified state
 *   **Current Status**: Wave 1 complete — LAN services verified. Ready for Docker service nodes / OCI cloud.
+
+### [2026-07-27] — Vault Restructure for Approach 1
+*   **Objectives**: Redesign for Approach 1 (no HA), audit GNS3 wiring, sync docs, add OS-specific setup guides
+*   **Actions Taken**:
+    *   Audited GNS3 project wiring — 15 nodes present, all LAN/WAN links correct, transit link missing
+    *   Redesigned from HA cluster to two independent FGTs with transit link (10.0.0.0/30) + OSPF
+    *   Created Setup-Guide-Linux.md (for native GNS3 on Linux)
+    *   Created Setup-Guide-Windows.md (for GNS3 VM on Windows)
+    *   Created Device-Setup-Guide.md (per-node config for all 16 devices)
+    *   Updated memory/init.md with OS detection + guide selection logic
+    *   Updated Topology.canvas, Full-Topology-Spec.md, Nodes-Reference.md for Approach 1
+    *   Updated progress.md to reflect actual state
+    *   Removed stale study dirs (Coursera, French notes, old phase dirs)
+*   **Current Status**: Docs updated for both platforms. Next: wire transit link, enable NAT, configure Docker services.
