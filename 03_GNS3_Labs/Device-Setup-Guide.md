@@ -4,16 +4,18 @@ Per-node setup instructions for every device in the topology.
 
 ---
 
-## 1. NAT1 (Cloud — virbr0)
+## 1. NAT1 (Cloud)
 
-No configuration needed — just place in GNS3.
+Provides WAN internet access for the lab.
 
-**Verify:**
-```bash
-# From host
-ip addr show virbr0
-# Expected: 192.168.122.1/24
-```
+**Linux:** Uses `virbr0` (libvirt default NAT bridge, 192.168.122.1).
+1. Right-click NAT1 → Configure → check `virbr0`
+2. Verify: `ip addr show virbr0` → should show `192.168.122.1/24`
+
+**Windows (GNS3 VM):** Uses `VMnet8` (VMware NAT adapter) or VirtualBox host-only adapter.
+1. Find the adapter: run `ipconfig` on Windows host, look for VMware VMnet8
+2. Right-click NAT1 → Configure → check that adapter
+3. Create a Cloud template pointing to that interface
 
 ---
 

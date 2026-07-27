@@ -1,151 +1,240 @@
-# FortiGate Lab — Setup Guide (Windows)
+# FortiGate Lab — Complete Setup Guide (Windows)
 
-> For Windows hosts using GNS3 VM (VMware or VirtualBox) to run QEMU/Docker.
+> A-to-Z guide for Windows hosts using GNS3 VM (VMware or VirtualBox).
+> Follow these steps in order from a completely clean start.
 
-## How GNS3 Works on Windows
+---
 
-GNS3 on Windows uses a **GNS3 VM** (a Linux VM) to run all QEMU and Docker workloads. The Windows host only runs the GNS3 GUI. This means:
-- FortiGate VMs, Docker containers, and Ubuntu all run inside the GNS3 VM
-- Console access is via GNS3 GUI right-click → Console
-- Docker commands (`docker exec`) must run **inside** the GNS3 VM (SSH in or use the GNS3 VM console)
-- The Windows host does NOT need Docker, libvirt, or QEMU installed
+## Step 0: Prerequisites
 
-## Prerequisites
+### 0.1 Install Required Software
 
-### Required Software
-- **GNS3 GUI** 2.2.x+ from [gns3.com](https://gns3.com)
-- **VMware Workstation** (recommended) or **VirtualBox**
-- **GNS3 VM** appliance (download from gns3.com — `.ova` file)
-- **PuTTY** or **Windows Terminal** (for SSH/telnet)
-- 7-Zip or similar (for extracting QCOW2 images)
-- Git for Windows (optional)
+| Software | Download | Purpose |
+|---|---|---|
+| **GNS3 GUI** | [gns3.com](https://gns3.com) | Main GNS3 interface |
+| **VMware Workstation** (recommended) or **VirtualBox** | vmware.com / virtualbox.org | Runs the GNS3 VM |
+| **GNS3 VM** | gns3.com → Downloads → GNS3 VM | Runs QEMU + Docker for you |
+| **PuTTY** | putty.org | SSH/Telnet console access |
+| **7-Zip** | 7-zip.org | Extract QCOW2 images |
+| **Git for Windows** (optional) | git-scm.com | Git operations |
 
-### Host Environment
-- Windows 10/11 64-bit
-- At least 8 GB RAM free (~7.3 GB for the lab + GNS3 VM overhead)
-- Intel VT-x or AMD-V enabled in BIOS
-- Hardware virtualization enabled in BIOS for the GNS3 VM
+**Windows features to enable:**
+- Open **Control Panel** → **Programs** → **Turn Windows features on/off**
+- Enable **Telnet Client** (for VPCS console access)
 
-### GNS3 VM Setup
+### 0.2 GNS3 VM Setup (Critical Step)
+
+The GNS3 VM is a Linux VM that runs ALL your QEMU and Docker workloads. The Windows host only runs the GUI.
+
+**Step-by-step VMware:**
 1. Download the GNS3 VM `.ova` from gns3.com
-2. Import into VMware Workstation (File → Open → select `.ova`)
-3. **VM Settings**:
-   - vCPUs: 4
-   - RAM: 8192 MB (8 GB) minimum
-   - Network adapter: NAT (VMnet8) — this provides internet for the lab
-   - Enable virtualization (VT-x/AMD-V) for the VM
-4. Start the GNS3 VM — it will get an IP via DHCP on the NAT network
-5. In GNS3 GUI: `Edit → Preferences → GNS3 VM` → enable → select VMware → auto-discover the VM
+2. Open VMware → `File` → `Open` → select the `.ova` → Import
+3. Before starting: right-click the VM → `Settings`:
+   - **Memory**: 8192 MB (8 GB) minimum
+   - **Processors**: 4 vCPUs
+   - **Network adapter**: NAT (VMnet8)
+   - **Virtualization**: Enable "Virtualize Intel VT-x/EPT or AMD-V/RVI" under Processors
+4. Start the VM — it gets an IP via DHCP on the NAT network
+5. Note the IP shown on the GNS3 VM console
 
-## Architecture
+**VirtualBox (if not using VMware):**
+1. File → Import Appliance → select `.ova`
+2. VM Settings: 8192 MB RAM, 4 CPUs, Network: NAT
+3. Enable VT-x/AMD-V in System → Acceleration
 
+### 0.3 Connect GNS3 GUI to GNS3 VM
+
+1. Open **GNS3 GUI**
+2. `Edit` → `Preferences` → `GNS3 VM`
+3. Check `Enable the GNS3 VM`
+4. Select **VMware** (or VirtualBox)
+5. Click `Auto-discover` — it should find the running GNS3 VM
+6. Click **OK** — GNS3 will now use the VM for all emulation
+
+To verify: the GNS3 status bar (bottom) should show `GNS3 VM: Running`.
+
+### 0.4 Download Required Images
+
+On the Windows host, create these folders:
 ```
-NAT1 ──Switch1──┬──FGT-Primary (port1 WAN)──port2──OVS-LAN1──[PC1, webterm, App-Server, PostgreSQL]
-                 │                         └port3──10.0.0.1/30──┐
-                 │                                               ├──Transit (OSPF)
-                 └──FGT-Secondary (port1 WAN)──port2──OVS-LAN2──[Alpine DHCP, Ubuntu, Grafana, Prometheus, Traffic-Gen]
-                                              └port3──10.0.0.2/30──┘
+C:\Users\<you>\GNS3\images\QEMU\
+C:\Users\<you>\GNS3\images\Docker\
 ```
 
-## Phase 1: Base Setup
+| Image | Source | Filename |
+|---|---|---|
+| **FortiGate 7.4.12** | Fortinet support site | `FGT_VM64_KVM-v7.4.12.F-build2622-outfile4.qcow2` |
+| **Ubuntu 24.04 Cloud** | [cloud-images.ubuntu.com](https://cloud-images.ubuntu.com/noble/current/) | `noble-server-cloudimg-amd64.img` |
 
-### 1.1 GNS3 Project
-Open GNS3 GUI → File → New Project → name it.
+Place both in `C:\Users\<you>\GNS3\images\QEMU\`.
 
-### 1.2 Nodes to Add
-| Node | Type | Image | Adapters |
+### 0.5 FortiGate Eval License
+
+1. Register a FortiCloud account at `https://forticloud.com`
+2. Register the VM serial number (found in the QCOW2 image properties or on first boot)
+3. Download the `.lic` license file
+4. You'll need **two FortiCloud accounts** if running both FGTs simultaneously (one eval per FGT)
+
+### 0.6 Find Your Cloud Interface
+
+On Windows with GNS3 VM, the Cloud node needs the right virtual interface:
+1. Open **Command Prompt** (cmd.exe) or PowerShell
+2. Run `ipconfig /all`
+3. Look for a **VMware VMnet8** adapter (or VirtualBox Host-Only adapter)
+4. Note its IP — this is the gateway for your lab's WAN (e.g., `192.168.122.1`)
+
+---
+
+## Step 1: Create Project & Add Nodes
+
+### 1.1 New Project
+- GNS3 GUI → `File` → `New Blank Project`
+- Name: `FortiGate Lab`
+
+### 1.2 Create GNS3 Templates
+
+**FortiGate QEMU template:**
+1. `Edit` → `Preferences` → `QEMU VMs` → `New`
+2. Name: `FGT-Primary`
+3. **RAM**: 2048 MB, **vCPUs**: 1, **Adapters**: 8, **Console**: telnet
+4. **Image**: Browse on the GNS3 VM file system or use the path to the QCOW2
+5. **Disk interface**: `virtio`, **Network adapter**: `virtio-net-pci`
+6. Click `Finish`
+
+**FGT-Secondary (linked clone):**
+1. In Preferences → QEMU VMs, select `FGT-Primary`
+2. Click `Clone` → Name: `FGT-Secondary`
+3. Enable `Linked clone`
+
+**Ubuntu Desktop:**
+1. `Edit` → `Preferences` → `QEMU VMs` → `New`
+2. Name: `Ubuntu-Desktop-Client-1`
+3. **RAM**: 2048 MB, **vCPUs**: 2, **Adapters**: 1, **Console**: vnc
+4. **Image**: `noble-server-cloudimg-amd64.img`
+5. Click `Finish`
+
+**Docker templates:** Create one for each Docker container:
+1. `Edit` → `Preferences` → `Docker containers` → `New`
+
+| Template Name | Image | Adapters | Console |
 |---|---|---|---|
-| FGT-Primary | QEMU | `fgt-v7.4.12.qcow2` | 8 |
-| FGT-Secondary | QEMU | Linked clone | 8 |
-| Ubuntu-Desktop-Client-1 | QEMU | `ubuntu-24.04-minimal-cloudimg` (mod) | 1 |
-| OpenvSwitch-1 | Docker | `gns3/openvswitch:latest` | 16 |
-| OpenvSwitch-2 | Docker | `gns3/openvswitch:latest` | 16 |
-| webterm-1 | Docker | `gns3/webterm:latest` | 1 |
-| Alpine-DHCP | Docker | `alpine:latest` | 1 |
-| appServer-1 | Docker | `python:3.12-alpine` | 1 |
-| PostgreSQL-1 | Docker | `postgres:16-alpine` | 1 |
-| Grafana-1 | Docker | `grafana/grafana:latest` | 1 |
-| Prometheus-1 | Docker | `prom/prometheus:latest` | 1 |
-| Traffic-Gen-1 | Docker | `alpine:latest` | 1 |
-| PC1 | VPCS | — | — |
-| NAT1 | Cloud (VMnet) | — | — |
-| Switch1 | Ethernet switch | — | 4 |
+| OpenvSwitch-1 | `gns3/openvswitch:latest` | 16 | Telnet |
+| OpenvSwitch-2 | `gns3/openvswitch:latest` | 16 | Telnet |
+| webterm-1 | `gns3/webterm:latest` | 1 | VNC |
+| Alpine-DHCP | `alpine:latest` *(custom, build later)* | 1 | Telnet |
+| appServer-1 | `python:3.12-alpine` | 1 | Telnet |
+| PostgreSQL-1 | `postgres:16-alpine` | 1 | Telnet |
+| Grafana-1 | `grafana/grafana:latest` | 1 | VNC |
+| Prometheus-1 | `prom/prometheus:latest` | 1 | VNC |
+| Traffic-Gen-1 | `alpine:latest` | 1 | Telnet |
 
-### 1.3 Cloud Node (NAT1)
-On Windows with GNS3 VM, the Cloud node uses the GNS3 VM's NAT interface:
-- If using **VMware**: use `VMnet8` (NAT network)
-- If using **VirtualBox**: use the host-only adapter or NAT network
-- The GNS3 VM's IP on this interface is the gateway (e.g., 192.168.122.1)
-- Create a Cloud node template with the correct VMware/VirtualBox interface
+For PostgreSQL, add environment variable: `POSTGRES_PASSWORD=gns3`.
 
-**Finding the right interface:**
-1. Right-click in GNS3 workspace → `Show GNS3 VM console` (or SSH into GNS3 VM)
-2. Run `ip addr show` to see the GNS3 VM's IP
-3. On Windows host, run `ipconfig` to find the matching VMware/VirtualBox adapter
-4. Create a Cloud node pointing to that adapter
+### 1.3 Drag Nodes onto the Workspace
 
-### 1.4 Console Access
-| Node Type | Method |
-|---|---|
-| FGT (QEMU) | Right-click → Console (Telnet via PuTTY) |
-| Docker | Right-click → Console (Telnet) |
-| Ubuntu (QEMU) | Right-click → Console (VNC) |
-| VPCS | Right-click → Console (Telnet) |
+From the **Devices Toolbar** (left side), drag each node:
 
-### 1.5 Docker Images
-Docker images are managed by the GNS3 VM, not the Windows host. GNS3 will automatically pull images when you start a Docker node. If images fail to pull:
-1. SSH into the GNS3 VM: `ssh gns3@<GNS3-VM-IP>` (password: `gns3`)
-2. Manually pull: `docker pull <image-name>`
-3. For custom images (alpine-dhcp), build directly on the GNS3 VM
+| Node | Toolbar Category | Template |
+|---|---|---|
+| NAT1 | **Clouds** | Create new: name `NAT1`, select the VMnet8 interface |
+| Switch1 | **Switches** | `Ethernet switch` |
+| FGT-Primary | **QEMU VMs** | `FGT-Primary` |
+| FGT-Secondary | **QEMU VMs** | `FGT-Secondary` |
+| Ubuntu Desktop | **QEMU VMs** | `Ubuntu-Desktop-Client-1` |
+| PC1 | **VPCS** | `PC1` |
+| OpenvSwitch-1/2 | **Docker** | `OpenvSwitch-1` / `OpenvSwitch-2` |
+| Alpine-DHCP | **Docker** | `Alpine-DHCP` |
+| webterm-1 | **Docker** | `webterm-1` |
+| appServer-1 | **Docker** | `appServer-1` |
+| PostgreSQL-1 | **Docker** | `PostgreSQL-1` |
+| Grafana-1 | **Docker** | `Grafana-1` |
+| Prometheus-1 | **Docker** | `Prometheus-1` |
+| Traffic-Gen-1 | **Docker** | `Traffic-Gen-1` |
 
-**Building alpine-dhcp on the GNS3 VM:**
-```bash
-# SSH into the GNS3 VM first
-ssh gns3@<GNS3-VM-IP>
+### 1.4 Configure NAT1 (Cloud Node)
+1. Right-click NAT1 → `Configure`
+2. Under **Cloud interfaces**, check the VMware VMnet8 adapter
+3. Click **OK**
 
-# Then build
-docker build -t alpine-dhcp:latest - << 'EOF'
-FROM alpine:latest
-RUN apk add --no-cache dnsmasq
-CMD ["sh", "-c", "echo 'interface=eth0' > /etc/dnsmasq.conf && echo 'dhcp-range=192.168.20.100,192.168.20.200,12h' >> /etc/dnsmasq.conf && echo 'dhcp-option=3,192.168.20.1' >> /etc/dnsmasq.conf && echo 'dhcp-option=6,8.8.8.8' >> /etc/dnsmasq.conf && ip addr add 192.168.20.2/24 dev eth0 && ip link set eth0 up && ip route add default via 192.168.20.1 && dnsmasq --no-daemon"]
-EOF
-```
+### 1.5 Wire Everything
 
-### 1.6 Wiring
-**WAN Segment:**
-- NAT1 a0p0 ↔ Switch1 a0p0
-- Switch1 a0p1 ↔ FGT-Primary a0p0 (port1)
-- Switch1 a0p2 ↔ FGT-Secondary a0p0 (port1)
+Click **Link Mode** (`Ctrl+L`), then click pairs:
+
+**WAN chain:**
+1. NAT1 → Switch1
+2. Switch1 → FGT-Primary (select port `a0p0` = port1)
+3. Switch1 → FGT-Secondary (select port `a0p0` = port1)
 
 **LAN1 (OVS-LAN1 = OpenvSwitch-1):**
-- FGT-Primary a1p0 (port2) ↔ OpenvSwitch-1 a0p0 (eth0)
-- OpenvSwitch-1 a1p0 (eth1) ↔ PC1 a0p0
-- OpenvSwitch-1 a2p0 (eth2) ↔ webterm-1 a0p0
-- OpenvSwitch-1 a3p0 (eth3) ↔ appServer-1 a0p0
-- OpenvSwitch-1 a4p0 (eth4) ↔ PostgreSQL-1 a0p0
+4. FGT-Primary → OpenvSwitch-1 (FGT port `a1p0` = port2)
+5. OpenvSwitch-1 → PC1 (OVS port `a1p0`)
+6. OpenvSwitch-1 → webterm-1 (OVS port `a2p0`)
+7. OpenvSwitch-1 → appServer-1 (OVS port `a3p0`)
+8. OpenvSwitch-1 → PostgreSQL-1 (OVS port `a4p0`)
 
 **LAN2 (OVS-LAN2 = OpenvSwitch-2):**
-- FGT-Secondary a1p0 (port2) ↔ OpenvSwitch-2 a0p0 (eth0)
-- OpenvSwitch-2 a1p0 (eth1) ↔ Alpine-DHCP a0p0
-- OpenvSwitch-2 a2p0 (eth2) ↔ Ubuntu-Desktop-Client a0p0
-- OpenvSwitch-2 a3p0 (eth3) ↔ Traffic-Gen-1 a0p0
-- OpenvSwitch-2 a4p0 (eth4) ↔ Grafana-1 a0p0
-- OpenvSwitch-2 a5p0 (eth5) ↔ Prometheus-1 a0p0
+9. FGT-Secondary → OpenvSwitch-2 (FGT port `a1p0` = port2)
+10. OpenvSwitch-2 → Alpine-DHCP (OVS port `a1p0`)
+11. OpenvSwitch-2 → Ubuntu-Desktop-Client-1 (OVS port `a2p0`)
+12. OpenvSwitch-2 → Traffic-Gen-1 (OVS port `a3p0`)
+13. OpenvSwitch-2 → Grafana-1 (OVS port `a4p0`)
+14. OpenvSwitch-2 → Prometheus-1 (OVS port `a5p0`)
 
-**Transit Link:**
-- FGT-Primary a2p0 (port3) ↔ FGT-Secondary a2p0 (port3)
+**Transit link:**
+15. FGT-Primary → FGT-Secondary (both use port `a2p0` = port3)
 
-### 1.7 OVS Bridge Setup
-Right-click each OVS node → Console, then run:
+---
+
+## Step 2: Start Nodes & Configure
+
+### 2.1 Start Order
+```
+1. NAT1 (Cloud)        3. FGT-Primary          5. OpenvSwitch-1
+2. Switch1             4. FGT-Secondary        6. OpenvSwitch-2
+```
+Then start the rest (Alpine-DHCP, Ubuntu, Docker nodes, PC1).
+
+### 2.2 Open Consoles
+
+| Node | Right-click → Console type |
+|---|---|
+| FGT | Telnet (opens PuTTY or Windows telnet) |
+| Ubuntu Desktop | VNC |
+| Docker | Telnet |
+| VPCS | Telnet |
+
+### 2.3 Login to FGTs
+
+At the `login:` prompt:
+```
+Username: admin
+Password: (press Enter, leave blank)
+```
+
+When asked to set password, type `n` (keep blank for now).
+
+### 2.4 Apply Eval License
+1. From the FGT console: `get system interface physical` → note port1's IP
+2. Open a browser on Windows to `https://<wan-ip>`
+3. Login: `admin` / no password
+4. **System** → **FortiGuard** → **License** → **Upload** → select your `.lic` file
+5. The FGT will reboot. Repeat for the second FGT.
+
+### 2.5 Configure OVS Bridges
+
+Right-click each OVS node → Console (Telnet):
+
+**OVS-LAN1:**
 ```bash
-# On OVS-LAN1 (OpenvSwitch-1)
 ovs-vsctl add-br br0
 for port in eth0 eth1 eth2 eth3 eth4; do
     ovs-vsctl add-port br0 $port
 done
 ovs-vsctl set-fail-mode br0 standalone
+```
 
-# On OVS-LAN2 (OpenvSwitch-2)
+**OVS-LAN2:**
+```bash
 ovs-vsctl add-br br0
 for port in eth0 eth1 eth2 eth3 eth4 eth5; do
     ovs-vsctl add-port br0 $port
@@ -153,348 +242,98 @@ done
 ovs-vsctl set-fail-mode br0 standalone
 ```
 
-### 1.8 Validate
-- All 15 nodes visible and green in GNS3
-- OVS bridges show all ports with `ovs-vsctl show`
-- NAT1 has internet (confirm from a FGT console: `execute ping 8.8.8.8`)
+### 2.6 Build Alpine DHCP Image (on GNS3 VM)
 
----
-
-## Phase 2: FGT Configuration
-
-### 2.1 FGT-Primary
-Via right-click → Console (Telnet). Enter config mode at `#` prompt.
-
-**Port1 — WAN (DHCP):**
-```
-config system interface
-    edit port1
-        set mode dhcp
-        set allowaccess ping https ssh
-    next
-end
-```
-
-**Port2 — LAN1:**
-```
-config system interface
-    edit port2
-        set mode static
-        set ip 192.168.10.1 255.255.255.0
-        set allowaccess ping
-    next
-end
-```
-
-**Port3 — Transit:**
-```
-config system interface
-    edit port3
-        set mode static
-        set ip 10.0.0.1 255.255.255.252
-        set allowaccess ping
-    next
-end
-```
-
-**Default Route + DNS:**
-```
-config router static
-    edit 1
-        set device port1
-        set gateway 192.168.122.1
-    next
-end
-config system dns
-    set primary 8.8.8.8
-    set secondary 1.1.1.1
-end
-```
-
-**Verify:** `execute ping 8.8.8.8`
-
-### 2.2 FGT-Secondary
-**Port1 — WAN (DHCP):**
-```
-config system interface
-    edit port1
-        set mode dhcp
-        set allowaccess ping https ssh
-    next
-end
-```
-
-**Port2 — LAN2:**
-```
-config system interface
-    edit port2
-        set mode static
-        set ip 192.168.20.1 255.255.255.0
-        set allowaccess ping
-    next
-end
-```
-
-**Port3 — Transit:**
-```
-config system interface
-    edit port3
-        set mode static
-        set ip 10.0.0.2 255.255.255.252
-        set allowaccess ping
-    next
-end
-```
-
-**Default Route + DNS:**
-```
-config router static
-    edit 1
-        set device port1
-        set gateway 192.168.122.1
-    next
-end
-config system dns
-    set primary 8.8.8.8
-    set secondary 1.1.1.1
-end
-```
-
-**Verify:** `execute ping 8.8.8.8`
-
----
-
-## Phase 3: LAN Services
-
-### 3.1 FGT-Primary DHCP (LAN1)
-```
-config system dhcp server
-    edit 1
-        set interface port2
-        set netmask 255.255.255.0
-        set default-gateway 192.168.10.1
-        set dns-service default
-        config ip-range
-            edit 1
-                set start-ip 192.168.10.100
-                set end-ip 192.168.10.200
-            next
-        end
-        set lease-time 86400
-    next
-end
-```
-
-### 3.2 Alpine DHCP on LAN2
-Build the image on the GNS3 VM (see Phase 1.5), then start the Alpine-DHCP Docker node in GNS3. The container's CMD handles IP config + dnsmasq automatically.
-
-### 3.3 Verify Clients
-- **PC1 (VPCS)**: enter `dhcp`, then `show ip`
-- **Ubuntu Desktop**: right-click → Console (VNC), login `ubuntu`/`gns3`, check `ip addr`
-- **Internet test**: `ping 8.8.8.8`
-
----
-
-## Phase 4: Policies & NAT
-
-### 4.1 FGT-Primary Policies
-```
-config firewall policy
-    edit 1
-        set name "LAN1-to-WAN"
-        set srcintf port2
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-    edit 2
-        set name "Transit-to-WAN"
-        set srcintf port3
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-end
-```
-
-### 4.2 FGT-Secondary Policies
-```
-config firewall policy
-    edit 1
-        set name "LAN2-to-WAN"
-        set srcintf port2
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-    edit 2
-        set name "Transit-to-WAN"
-        set srcintf port3
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-end
-```
-
----
-
-## Phase 5: OSPF Routing
-
-### 5.1 FGT-Primary
-```
-config router ospf
-    set router-id 10.0.0.1
-    config area
-        edit 0.0.0.0
-    next
-    config network
-        edit 1
-            set prefix 192.168.10.0 255.255.255.0
-            set area 0.0.0.0
-        next
-        edit 2
-            set prefix 10.0.0.0 255.255.255.252
-            set area 0.0.0.0
-        next
-    end
-end
-```
-
-### 5.2 FGT-Secondary
-```
-config router ospf
-    set router-id 10.0.0.2
-    config area
-        edit 0.0.0.0
-    next
-    config network
-        edit 1
-            set prefix 192.168.20.0 255.255.255.0
-            set area 0.0.0.0
-        next
-        edit 2
-            set prefix 10.0.0.0 255.255.255.252
-            set area 0.0.0.0
-        next
-    end
-end
-```
-
-### 5.3 Inter-LAN Policies
-On FGT-Primary: `edit 3`, name `Transit-to-LAN1`, srcintf `port3`, dstintf `port2`
-On FGT-Secondary: `edit 3`, name `Transit-to-LAN2`, srcintf `port3`, dstintf `port2`
-
-### 5.4 Verify
-```
-get router info ospf neighbor
-execute ping 10.0.0.2
-execute ping 192.168.20.1
-```
-
----
-
-## Phase 6: Docker Services
-
-> **Important:** Docker containers run inside the GNS3 VM. To run `docker exec` commands:
-> - Option A: Right-click each Docker node → Console (Telnet) and configure IP manually
-> - Option B: SSH into the GNS3 VM and run `docker exec` from there
-
-### 6.1 Option A — Via Container Console (Recommended)
-Right-click each container → Console, then run:
+SSH into the GNS3 VM to build the custom Docker image:
 ```bash
-# PostgreSQL
-ip addr add 192.168.10.11/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.10.1
+# From PowerShell or Putty
+ssh gns3@<GNS3-VM-IP>   # password: gns3
 
-# App-Server
-ip addr add 192.168.10.10/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.10.1
-
-# Grafana
-ip addr add 192.168.20.10/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.20.1
-
-# Prometheus
-ip addr add 192.168.20.11/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.20.1
-
-# Traffic-Gen
-ip addr add 192.168.20.12/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.20.1
+# Inside the GNS3 VM:
+docker build -t alpine-dhcp:latest - << 'EOF'
+FROM alpine:latest
+RUN apk add --no-cache dnsmasq
+CMD ["sh", "-c", "echo 'interface=eth0' > /etc/dnsmasq.conf && echo 'dhcp-range=192.168.20.100,192.168.20.200,12h' >> /etc/dnsmasq.conf && echo 'dhcp-option=3,192.168.20.1' >> /etc/dnsmasq.conf && echo 'dhcp-option=6,8.8.8.8' >> /etc/dnsmasq.conf && ip addr add 192.168.20.2/24 dev eth0 && ip link set eth0 up && ip route add default via 192.168.20.1 && dnsmasq --no-daemon"]
+EOF
 ```
 
-### 6.2 Option B — Via GNS3 VM SSH
+Back in GNS3 GUI: `Edit` → `Preferences` → Docker containers → Alpine-DHCP → change image to `alpine-dhcp:latest`.
+
+### 2.7 Modify Ubuntu Image (One-Time)
+
+You need the Ubuntu cloud image to have password `gns3` for user `ubuntu`.
+
+**Option A: Use the pre-modified image from this repo** (if available).
+
+**Option B: Modify via the GNS3 VM:**
 ```bash
-# SSH into GNS3 VM
 ssh gns3@<GNS3-VM-IP>
+sudo apt update && sudo apt install -y libguestfs-tools
 
-# Find container IDs
-docker ps | grep <container-name>
-
-# Configure IP
-docker exec <container-id> ip addr add <ip>/24 dev eth0
-docker exec <container-id> ip link set eth0 up
-docker exec <container-id> ip route add default via <gateway>
+# Path to the Ubuntu image on the GNS3 VM
+# (usually /opt/gns3/images/QEMU/ or similar)
+sudo guestfish -a /path/to/noble-server-cloudimg-amd64.img << 'EOF'
+  run
+  mount /dev/sda1 /
+  sh 'echo "ubuntu:$(openssl passwd -6 gns3)" | chpasswd -e'
+  sh 'echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/ubuntu'
+EOF
 ```
 
 ---
 
-## Phase 7-10: Security, VPN, OCI, Logging
+## Step 3-12: Configure the Lab
 
-These phases are OS-independent — all config is on the FortiGates or the OCI instance. Follow the same CLI commands as the Linux guide:
+The FortiGate and service configuration steps are OS-independent. Follow the sections from the Linux guide:
 
-- **Phase 7**: Security profiles on both FGTs
-- **Phase 8**: IPsec + SSL VPN config
-- **Phase 9**: OCI cloud deployment (same regardless of host OS)
-- **Phase 10**: Syslog forwarding + demo scenarios
+| Step | What To Do | Linux Guide Section |
+|---|---|---|
+| **3** | FGT-Primary interfaces, route, DNS | Step 3.1-3.4 |
+| **4** | FGT-Secondary interfaces, route, DNS | Step 4.1-4.4 |
+| **5** | DHCP (FGT-P + Alpine), verify clients | Step 5.1-5.4 |
+| **6** | Firewall policies, SNAT | Step 6.1-6.3 |
+| **7** | OSPF routing, inter-LAN policies | Step 7.1-7.4 |
+| **8** | Docker service IP config | Step 8.1-8.5 |
+| **9** | Security profiles (AV, IPS, Web Filter) | Step 9.1-9.6 |
+| **10** | IPsec + SSL VPN | Step 10.1-10.2 |
+| **11** | OCI cloud deployment | Step 11.1-11.4 |
+| **12** | Syslog + demo scenarios | Step 12.1-12.3 |
 
-See `Device-Setup-Guide.md` for per-device commands, or `Setup-Guide-Linux.md` for detailed phase configs.
+> **Docker note**: On Windows, `docker exec` commands must run from the GNS3 VM. Instead, right-click each Docker node → Console (Telnet) and configure IPs directly in the container shell:
+> ```bash
+> ip addr add <IP>/24 dev eth0
+> ip link set eth0 up
+> ip route add default via <gateway>
+> ```
+
+### Docker Service IPs to Set
+| Container | IP | Gateway |
+|---|---|---|
+| PostgreSQL-1 | 192.168.10.11/24 | 192.168.10.1 |
+| appServer-1 | 192.168.10.10/24 | 192.168.10.1 |
+| Grafana-1 | 192.168.20.10/24 | 192.168.20.1 |
+| Prometheus-1 | 192.168.20.11/24 | 192.168.20.1 |
+| Traffic-Gen-1 | 192.168.20.12/24 | 192.168.20.1 |
 
 ---
 
-## Windows-Specific Notes
+## Windows-Specific Troubleshooting
 
-### Console Shortcuts
-| Action | Method |
-|---|---|
-| Open console | Right-click node → Console |
-| Open VNC | Right-click node → Console (uses built-in VNC or TightVNC) |
-| SSH into GNS3 VM | `ssh gns3@<GNS3-VM-IP>` from PowerShell/WSL |
-| Browse to web services | Open `http://<container-ip>:<port>` in Windows browser |
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| GNS3 VM not detected | Firewall blocking | Allow GNS3 in Windows Defender Firewall |
+| Can't SSH to GNS3 VM | Wrong network type | Change VM adapter from NAT to Bridged |
+| Docker nodes show grayed out | Images not pulled on GNS3 VM | SSH into GNS3 VM, `docker pull <image>` |
+| Cloud node has no interfaces | Wrong adapter selected | Reconfigure NAT1 with correct VMnet adapter |
+| Lab is very slow | GNS3 VM under-resourced | Give VM 8+ GB RAM, 4+ vCPUs |
+| VNC console blank | VNC viewer not installed | Install TightVNC or use GNS3 built-in viewer |
+| Git operations fail | No Git installed | Install Git for Windows from git-scm.com |
+| Can't find QCOW2 image in template | Path wrong | Images go in GNS3 VM's storage, not Windows host |
 
-### File Paths
-| Item | Windows Path |
-|---|---|
-| GNS3 project files | `C:\Users\<you>\GNS3\projects\` |
-| QEMU images | `C:\Users\<you>\GNS3\images\QEMU\` |
-| GNS3 config | `C:\Users\<you>\.config\GNS3\` |
+---
 
-### Troubleshooting
-| Issue | Fix |
-|---|---|
-| GNS3 VM not detected | Check VMware/VirtualBox network adapter type. GNS3 VM must use NAT (VMnet8) |
-| Docker containers won't start | SSH into GNS3 VM, run `docker pull <image>` manually |
-| No internet in lab | Check GNS3 VM has internet (ping google.com from GNS3 VM console) |
-| Cant reach container web UI from Windows | Use GNS3 VNC console instead, or add host route to container subnet |
+## Complete Reset
+
+1. GNS3 GUI: `File` → `Delete Project`
+2. In VMware: reset the GNS3 VM to snapshot
+3. Start fresh from Step 1
