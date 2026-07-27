@@ -57,13 +57,13 @@ This file manages your daily timeline for a 1-month internship starting on **Tue
 
 #### Day 05 (Saturday, July 11, 2026) - 🧘 Weekend (3h)
 *   **Theory (FortiGate Administrator)**:
-    - [ ] Coursera: *FortiGate Administrator* - Module 3 (Routing).
-    - [ ] Study route lookup parameters, distance administrative (AD), and dynamic route priority.
+    - [x] Coursera: *FortiGate Administrator* - Module 3 (Routing).
+    - [x] Study route lookup parameters, distance administrative (AD), and dynamic route priority.
 
 #### Day 06 (Sunday, July 12, 2026) - 🧘 Weekend (2h)
 *   **Theory (FortiGate Administrator)**:
-    - [ ] Coursera: *FortiGate Administrator* - Module 4 (Firewall Authentication).
-    - [ ] Study local database, LDAP directory connector, and single sign-on (FSSO) methods.
+    - [x] Coursera: *FortiGate Administrator* - Module 4 (Firewall Authentication).
+    - [x] Study local database, LDAP directory connector, and single sign-on (FSSO) methods.
 
 ---
 

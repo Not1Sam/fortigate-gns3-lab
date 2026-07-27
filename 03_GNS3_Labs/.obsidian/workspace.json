@@ -1,24 +1,24 @@
 {
   "main": {
-    "id": "dbcae11e93ab3396",
+    "id": "2abecf2e5c8e537d",
     "type": "split",
     "children": [
       {
-        "id": "9566038a2484e18e",
+        "id": "b65e5e8b1633a12e",
         "type": "tabs",
         "children": [
           {
-            "id": "28e573a03f7d4f58",
+            "id": "66ae13f85bf66ac3",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03_GNS3_Labs/Full-Topology-Spec.md",
+                "file": "Topology-Setup-Guide.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Full-Topology-Spec"
+              "title": "Topology-Setup-Guide"
             }
           }
         ]
@@ -27,15 +27,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "55f4b4700f825cf0",
+    "id": "b6d54b7d8af0b90d",
     "type": "split",
     "children": [
       {
-        "id": "344dbb86c25bd66b",
+        "id": "483ba5afa2bac20e",
         "type": "tabs",
         "children": [
           {
-            "id": "55f1b37e2646f707",
+            "id": "38e44074992360b5",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -48,7 +48,7 @@
             }
           },
           {
-            "id": "ed0e57d70a921c04",
+            "id": "fc0a423b358835e9",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -65,7 +65,7 @@
             }
           },
           {
-            "id": "4ad0502f185a2fa7",
+            "id": "8390e5cde7dd74be",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -81,20 +81,20 @@
     "width": 300
   },
   "right": {
-    "id": "5e136b7d0f18ddb7",
+    "id": "afc401ed06a44ab9",
     "type": "split",
     "children": [
       {
-        "id": "400bc2d40c28aa83",
+        "id": "70ea87cb215b18f2",
         "type": "tabs",
         "children": [
           {
-            "id": "cfb266fca93e5bae",
+            "id": "d249958eb845df24",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "03_GNS3_Labs/Full-Topology-Spec.md",
+                "file": "Topology-Setup-Guide.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,25 +104,25 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Rétrolien pour Full-Topology-Spec"
+              "title": "Rétrolien pour Topology-Setup-Guide"
             }
           },
           {
-            "id": "613b5d51d21a544c",
+            "id": "f19e787f2f63aa3b",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "03_GNS3_Labs/Full-Topology-Spec.md",
+                "file": "Topology-Setup-Guide.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Liens sortants de Full-Topology-Spec"
+              "title": "Liens sortants de Topology-Setup-Guide"
             }
           },
           {
-            "id": "2119f1ec9ad95d4e",
+            "id": "5ea17bcb31a8e4bf",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -137,7 +137,7 @@
             }
           },
           {
-            "id": "900b827190a57bd1",
+            "id": "00ca967f5cbfb192",
             "type": "leaf",
             "state": {
               "type": "all-properties",
@@ -151,18 +151,18 @@
             }
           },
           {
-            "id": "f8debfbb3c23168a",
+            "id": "ebae65e5ce227d75",
             "type": "leaf",
             "state": {
               "type": "outline",
               "state": {
-                "file": "03_GNS3_Labs/Full-Topology-Spec.md",
+                "file": "Topology-Setup-Guide.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Plan de Full-Topology-Spec"
+              "title": "Plan de Topology-Setup-Guide"
             }
           }
         ]
@@ -183,15 +183,11 @@
       "bases:Créer une nouvelle base": false
     }
   },
-  "active": "28e573a03f7d4f58",
+  "active": "38e44074992360b5",
   "lastOpenFiles": [
-    "FORTIGATE-REFERENCE.md",
-    "progress/bingus.md",
-    "progress/_template_.md",
-    "03_GNS3_Labs/Topology.canvas",
-    "03_GNS3_Labs/Sandbox_Expansion_Guide.md",
-    "03_GNS3_Labs/Nodes-Reference.md",
-    "03_GNS3_Labs/Full-Topology-Spec.md",
-    "progress"
+    "Topology.canvas",
+    "Sandbox_Expansion_Guide.md",
+    "Nodes-Reference.md",
+    "Full-Topology-Spec.md"
   ]
 }

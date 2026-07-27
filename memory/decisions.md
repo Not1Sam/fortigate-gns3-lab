@@ -1,25 +1,18 @@
 # Design & Architectural Decisions
 
-## Approach 1: Two Independent FGTs (no HA)
-- **Problem**: HA with eval license (3-interface limit) makes VLAN subinterfaces impossible. HA forces both FGTs into same LAN config, losing LAN1/LAN2 separation.
-- **Decision**: Run two independent FortiGates. Each has its own WAN, LAN, and a transit link between them (port3). No HA cluster. OSPF over transit for dynamic routing demo.
-- **Outcome**: Covers all objectives except live HA failover — HA is studied on paper and documented.
+## Approach 2: HA Active-Passive Cluster (current)
+- **Context**: Originally designed as two independent FGTs with transit link and OSPF. Later overridden by user decision to implement HA for live cluster demo.
+- **Decision**: Active-Passive HA cluster on port3 (heartbeat). FGT-Primary = priority 200 (active), FGT-Secondary = priority 100 (passive). Group-name: FortiLab-HA.
+- **Trade-off**: HA forces both FGTs into identical config. LAN1 and LAN2 merge into one flat LAN segment behind the virtual MAC. LAN isolation is lost.
+- **Impact on 3-interface eval limit**: Port1=WAN, port2=LAN, port3=HA heartbeat (all 3 used). No transit/OSPF possible.
 - **Alternatives considered**:
-  - *HA Active-Passive + VLANs*: 3-interface limit exceeded (port1 + port2 + VLAN10 + VLAN20 + port3 = 5)
-  - *HA Active-Passive + flat LAN*: Works, but loses LAN isolation and cross-FGT features
+  - *HA Active-Passive + VLANs*: Exceeds 3-interface limit
+  - *Two independent FGTs + transit*: Original design, preserves LAN isolation but no live HA demo
 
-## Transit Link Between FGTs (10.0.0.0/30)
-- **Purpose**: Route traffic between LAN1 and LAN2, demonstrate OSPF dynamic routing
-- **Design**: port3 on each FGT, directly connected, OSPF over the link
-- **Outcome**: Both LANs can communicate through the transit while keeping separate firewall policies
-
-## OSPF Over Static Routing
-- **Decision**: Use OSPF on the transit link despite the 3-route limit. Connected routes are automatic; the two static routes (default + one for the other LAN) stay within 3.
-- **Note**: The route limit may not be strictly enforced (community reports), but we design within it.
-
-## Port3 for Transit (not HA)
-- **Decision**: Eval license limits to ports 1-3. Port3 is the only available port for the inter-FGT link after WAN and LAN.
-- **Impact**: No HA heartbeat link needed — FGTs operate independently.
+## LAN Subnet (Post-HA)
+- **Decision**: Collapse both LAN segments into a single subnet 192.168.10.0/24 behind the HA cluster's active node port2.
+- **DHCP**: FGT-Primary handles DHCP for the merged LAN. Alpine DHCP on old LAN2 side is reconfigured to serve the same subnet.
+- **Docker Services**: All containers deployed on a single bridge network (`fortigate-lab`, 192.168.10.0/24) with static IPs.
 
 ## Two Separate OVS Switches (not one)
 - **Decision**: OVS-LAN1 behind FGT-Primary port2, OVS-LAN2 behind FGT-Secondary port2

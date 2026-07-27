@@ -40,12 +40,22 @@
 ## Network Addressing
 
 | Segment | Subnet | Gateway | DHCP |
-|---|---|---|---|
+|---|---|---|---|---|
 | WAN (NAT1) | `192.168.122.0/24` | `192.168.122.1` (virbr0) | virbr0/libvirt |
-| LAN1 (FGT-Primary) | `192.168.10.0/24` | `192.168.10.1` (FGT-P port2) | FGT-P built-in DHCP |
-| LAN2 (FGT-Secondary) | `192.168.20.0/24` | `192.168.20.1` (FGT-S port2) | Alpine dnsmasq |
-| Transit | `10.0.0.0/30` | — | Static |
+| HA LAN (merged) | `192.168.10.0/24` | `192.168.10.1` (FGT port2) | FGT built-in DHCP |
+| HA Heartbeat | port3 (direct) | — | — |
 | IPsec Tunnel | `10.0.1.0/24` | — | — |
+
+## Docker Service Network (Windows Docker)
+| Container | Image | IP | Ports | Status |
+|---|---|---|---|---|
+| PostgreSQL-1 | `postgres:16-alpine` | 192.168.10.11 | 5432 | Running, DB `appdb` created |
+| App-Server | `python:3.12-alpine` | 192.168.10.10 | 80 | Flask app, DB connected ✅ |
+| Grafana-1 | `grafana/grafana:latest` | 192.168.10.20 | 3000 | Running |
+| Prometheus-1 | `prom/prometheus:latest` | 192.168.10.21 | 9090 | Running |
+| Alpine DHCP | `alpine-dhcp:latest` (custom) | 192.168.10.2 | — | dnsmasq running |
+| Traffic-Gen | `alpine:latest` | 192.168.10.22 | — | curl + busybox |
+| webterm-1 | `gns3/webterm:latest` | 192.168.10.100 | — | Needs GNS3 display |
 
 ## Topology — 14 Nodes
 
@@ -76,19 +86,19 @@
 
 ## Port Maps
 
-### FGT-Primary
-| Port | Connected To | Address |
-|---|---|---|
-| port1 | Switch1 (NAT1) | DHCP (`192.168.122.x`) |
-| port2 | OVS-LAN1 | `192.168.10.1/24` |
-| port3 | FGT-Secondary port3 | `10.0.0.1/30` (transit) |
+### HA Cluster (Active-Passive)
+| FGT | Role | Priority | HBdev |
+|---|---|---|---|
+| FGT-Primary | Active | 200 | port3 (50) |
+| FGT-Secondary | Passive | 100 | port3 (50) |
+| Group | FortiLab-HA | Mode | a-p |
 
-### FGT-Secondary
-| Port | Connected To | Address |
-|---|---|---|
-| port1 | Switch1 (NAT1) | DHCP (`192.168.122.x`) |
-| port2 | OVS-LAN2 | `192.168.20.1/24` |
-| port3 | FGT-Primary port3 | `10.0.0.2/30` (transit) |
+### FGT Ports (HA mode)
+| FGT | Port | Connected To | Address | Purpose |
+|---|---|---|---|---|
+| Both (virtual MAC) | port1 | Switch1 (NAT1) | DHCP (`192.168.122.x`) | WAN |
+| Both (virtual MAC) | port2 | OVS-LAN1/LAN2 | `192.168.10.1/24` | Merged LAN |
+| Both | port3 | Peer port3 | — | HA heartbeat |
 
 ## OCI Threat Simulator Endpoints
 | Endpoint | Traffic | What It Proves |
