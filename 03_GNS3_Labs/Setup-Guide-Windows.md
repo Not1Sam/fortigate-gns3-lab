@@ -62,18 +62,24 @@ C:\Users\<you>\GNS3\images\Docker\
 ```
 
 | Image | Source | Filename |
-|---|---|---|
+|---|---|---|---|
 | **FortiGate 7.4.12** | Fortinet support site | `FGT_VM64_KVM-v7.4.12.F-build2622-outfile4.qcow2` |
+| **FortiGate 7.0.9 Pre-Licensed** _(alternative)_ | Pre-activated image | `fortios.qcow2` (no FortiCloud registration needed) |
 | **Ubuntu 24.04 Cloud** | [cloud-images.ubuntu.com](https://cloud-images.ubuntu.com/noble/current/) | `noble-server-cloudimg-amd64.img` |
 
 Place both in `C:\Users\<you>\GNS3\images\QEMU\`.
 
-### 0.5 FortiGate Eval License
+### 0.5 FortiGate License
 
+**For 7.4.12 (eval):**
 1. Register a FortiCloud account at `https://forticloud.com`
 2. Register the VM serial number (found in the QCOW2 image properties or on first boot)
 3. Download the `.lic` license file
 4. You'll need **two FortiCloud accounts** if running both FGTs simultaneously (one eval per FGT)
+
+**For 7.0.9 pre-licensed (`fortios.qcow2`):**
+- No registration needed. Copy to `C:\Users\<you>\GNS3\images\QEMU\` and create the template.
+- Each booted instance gets a valid eval license automatically.
 
 ### 0.6 Find Your Cloud Interface
 

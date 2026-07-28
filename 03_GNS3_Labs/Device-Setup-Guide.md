@@ -574,7 +574,33 @@ curl ifconfig.me
 
 ---
 
-## 16. OCI Cloud Instance (External)
+## 16. Traffic-Gen-2
+
+**Template:** Docker, `alpine:latest`, 1 adapter, `GNS3_USER=root`
+**Console:** Telnet
+**Network:** OVS-LAN2 eth6, LAN2
+
+### 16.1 Set IP
+```bash
+ip addr add 192.168.20.13/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+echo nameserver 8.8.8.8 > /etc/resolv.conf
+```
+
+### 16.2 Traffic Script
+```bash
+while true; do
+    curl -s http://192.168.10.10/ > /dev/null 2>&1
+    curl -s http://192.168.20.11:3000/ > /dev/null 2>&1
+    ping -c 1 192.168.10.1 > /dev/null 2>&1
+    sleep 10
+done &
+```
+
+---
+
+## 17. OCI Cloud Instance (External)
 
 **Deployment:** Ubuntu 24.04 on Oracle Cloud (or any public cloud)
 

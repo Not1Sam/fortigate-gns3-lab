@@ -38,8 +38,9 @@ sudo usermod -aG docker,libvirt $USER
 You need these image files before starting:
 
 | Image | Source | Filename |
-|---|---|---|
+|---|---|---|---|
 | **FortiGate 7.4.12** | Fortinet support site | `FGT_VM64_KVM-v7.4.12.F-build2622-outfile4.qcow2` |
+| **FortiGate 7.0.9 Pre-Licensed** _(alternative)_ | Pre-activated image | `fortios.qcow2` (no FortiCloud registration needed) |
 | **Ubuntu 24.04 Cloud** | [cloud-images.ubuntu.com](https://cloud-images.ubuntu.com/noble/current/) | `noble-server-cloudimg-amd64.img` |
 
 Place images in:
@@ -49,10 +50,9 @@ mv FGT_VM64_KVM-*.qcow2 ~/GNS3/images/QEMU/
 mv noble-server-cloudimg-amd64.img ~/GNS3/images/QEMU/
 ```
 
-**FortiGate license (eval):**
-1. Go to `https://forticloud.com` and register a free account
-2. Navigate to **Product Registration** and register the FortiGate VM with the serial number from your image
-3. You'll receive a license file (`.lic`). Two accounts needed if running both FGTs simultaneously (one eval per FGT)
+**FortiGate license:**
+- **7.4.12 (eval):** Go to `https://forticloud.com`, register a free account, register the VM serial number, get `.lic` file. Two accounts needed for two FGTs.
+- **7.0.9 pre-licensed:** No registration needed. Just use `fortios.qcow2` — each boot gets a valid eval automatically.
 
 ### 0.3 Verify Host Readiness
 ```bash
