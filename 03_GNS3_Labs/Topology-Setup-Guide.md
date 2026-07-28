@@ -627,7 +627,7 @@ end
 config vpn ipsec phase1-interface
     edit "to-oci"
         set interface port1
-        set remote-gw <OCI-public-IP>
+        set remote-gw <OCI-public-IP> 
         set proposal aes128-sha1
         set dhgrp 2
     next

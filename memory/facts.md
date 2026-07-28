@@ -130,9 +130,19 @@
 > [!tip] Ubuntu credentials are persistent
 > The GNS3 base image (`ubuntu-24.04-minimal-cloudimg-amd64.img`) has been modified with the ubuntu user pre-created. Any new linked clone node inherits these credentials.
 
+## Available Images
+| Image | Version | Source | License | Location |
+|---|---|---|---|---|
+| `fgt-v7.4.12.qcow2` | FortiOS 7.4.12 build 2902 | Official Fortinet eval | Requires FortiCloud + free eval | `~/GNS3/images/QEMU/` |
+| `fortios.qcow2` | FortiOS 7.0.9 build 0444 (GA) | Pre-licensed | Valid eval, no registration needed | `~/GNS3/images/QEMU/` |
+| `fgt-v8.0.0.qcow2` | FortiOS 8.0.0.F build 0167 | Official Fortinet eval | Requires FortiCloud + free eval | `~/GNS3/images/QEMU/` |
+
+The 7.0.9 pre-licensed image can be mixed with 7.4.12 in the same topology (OSPF compatible). See [[FortiGate-7.0.9-PreLicensed]] for setup guide.
+
 ## Key Constraints Summary
-1. **2 FortiCloud accounts needed** — one eval license per account
-2. **3 policies each FGT** — forces efficient policy design
-3. **3 routes each FGT** — transit + default + LAN = 3
-4. **No FortiGuard** — UTM uses factory signatures + static lists
-5. **Low encryption data plane** — IPsec uses AES128-SHA1, not AES256-GCM
+1. **Pre-licensed 7.0.9** — no FortiCloud registration needed per VM
+2. **2 FortiCloud accounts needed** — one per 7.4.12 eval license
+3. **3 policies each FGT** — forces efficient policy design
+4. **3 routes each FGT** — transit + default + LAN = 3
+5. **No FortiGuard** — UTM uses factory signatures + static lists
+6. **Low encryption data plane** — IPsec uses AES128-SHA1, not AES256-GCM
