@@ -37,8 +37,8 @@ Create a new project in GNS3, or open an existing one.
 ### 1.2 Nodes to Add
 | Node | Type | Image | Adapters |
 |---|---|---|---|
-| FGT-Primary | QEMU | `fgt-v7.4.12.qcow2` | 8 |
-| FGT-Secondary | QEMU | Linked clone | 8 |
+| FGT-Primary | QEMU | `fgt-v7.4.12.qcow2` (or `fortios.qcow2` for pre-licensed 7.0.9) | 8 |
+| FGT-Secondary | QEMU | Linked clone (or second `fortios.qcow2`) | 8 |
 | Ubuntu-Desktop-Client-1 | QEMU | `ubuntu-24.04-minimal-cloudimg` (mod) | 1 |
 | OpenvSwitch-1 | Docker | `gns3/openvswitch:latest` | 16 |
 | OpenvSwitch-2 | Docker | `gns3/openvswitch:latest` | 16 |
@@ -54,6 +54,9 @@ Create a new project in GNS3, or open an existing one.
 | Switch1 | Ethernet switch | — | 4 |
 
 > FGT eval limits: 3 interfaces, 3 policies, 3 routes per FGT.
+>
+> See [[FortiGate-7.0.9-PreLicensed]] for pre-licensed image setup.
+> See [[Docker-Services-Guide]] for Docker app deployment.
 
 ### 1.3 Wiring
 **WAN Segment:**

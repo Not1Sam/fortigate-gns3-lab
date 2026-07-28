@@ -2,7 +2,7 @@
 
 ## Environment Baseline
 - **Hypervisor**: GNS3 on Linux (QEMU/KVM via libvirt + Docker)
-- **Firewall OS**: FortiOS v7.4.12 KVM (stable, works within 2 GB RAM limit)
+- **Firewall OS**: FortiOS v7.4.12 KVM (primary), FortiOS v7.0.9 pre-licensed also available
 - **Host RAM**: 32 GB — ~7.3 GB budgeted for lab VMs
 - **GNS3 Control**: `gns3-control` script at `~/.local/bin/gns3-control`
   - `start/stop/restart/status` — manages GNS3 server + docker + libvirtd

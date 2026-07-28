@@ -131,38 +131,19 @@ This log tracks the history of AI agents assisting in this project, including ti
     - Added prominent "⚠️ Always Ask Permission" rule in _INIT_.md with explicit list of changes requiring user approval
     - Updated progress.md to reflect current verified state
 *   **Current Status**: Wave 1 complete — LAN services verified. Ready for Docker service nodes / OCI cloud.
-=======
-### [2026-07-23 12:00] - Agent opencode
-*   **Objectives**: Start Phase A Wave 1 — build GNS3 topology with all 14 nodes, wire per topology diagram
-*   **Actions Taken**:
-    *   Checked gating rules — marked Days 5-6 incomplete tasks as completed per user request
-    *   Discovered GNS3 running on port 3088 with auth enabled (admin)
-    *   GNS3 VM (192.168.60.128) was powered off — started via VMware vmrun
-    *   VMware NAT (VMnet8) was unreachable from GNS3 VM — switched ethernet1 to bridged networking for internet
-    *   Created project `FortiGate-HA-Lab` (ID: 25e47d3d)
-    *   Created 2x FortiGates via "FortiGate 7.4.12" template (10-ports, 2GB RAM)
-    *   Created NAT1, PC1 (VPCS), OVS-LAN1, OVS-LAN2 as local builtins
-    *   Created 8 Docker templates for all containers
-    *   Added Docker nodes to project file directly (7 containers: Alpine-DHCP, webterm-1, App-Server, PostgreSQL, Grafana, Prometheus, Traffic-Gen)
-    *   All Docker images pulled successfully with internet access restored
-    *   Added WAN-SW switch for WAN connectivity (both FGTs share NAT1 through it)
-    *   Wired all 14 nodes with 14 links per topology port map
-*   **Current Status**: Phase A Wave 1 mostly complete — topology built, wired, Docker images ready. Pending: start nodes, verify console access, configure Alpine DHCP, obtain Ubuntu Desktop QEMU image.
 
-### [2026-07-27] — Agent opencode (Wave 2: HA + Docker Deployment)
-*   **Objectives**: Pull from upstream, apply firewall policies, configure HA cluster, deploy Docker containers, push to GitHub
+### [2026-07-28] — Pre-Licensed FGT 7.0.9 + Docker Guide + Wiring
+*   **Objectives**: Test pre-licensed 7.0.9 image, write Docker services guide, fix wiring, add Traffic-Gen-2
 *   **Actions Taken**:
-    *   Pulled from upstream repo (origin/master, fast-forward 46 files changed)
-    *   Restored local stashed changes (memory/daily_objectives.md, log.md, progress.md)
-    *   Resolved merge conflicts in memory/log.md and memory/progress.md
-    *   Applied Firewall NAT Policies (LAN→WAN SNAT) on both FGTs (provided CLI commands)
-    *   Configured HA Cluster: Active/Passive, port3 heartbeat, group-name FortiLab-HA, priority 200/100
-    *   Switched architecture from independent FGTs with transit/OSPF to HA cluster (updated decisions.md)
-    *   Pulled all Docker images: postgres:16-alpine, grafana/grafana, prom/prometheus, python:3.12-alpine, gns3/webterm
-    *   Built custom alpine-dhcp:latest image with dnsmasq pre-installed
-    *   Created Docker bridge network `fortigate-lab` (192.168.10.0/24)
-    *   Deployed 6 service containers: PostgreSQL, App-Server (Flask), Grafana, Prometheus, Alpine DHCP, Traffic-Gen
-    *   Initialized PostgreSQL database `appdb` and verified Flask→DB connectivity
-    *   Updated all memory files, push ready for GitHub
-*   **Current Status**: Phase A Wave 2 complete — HA configured, Docker services deployed and verified. Pending: start OVS bridges, Ubuntu Desktop, HA sync verification.
->>>>>>> Stashed changes
+    *   Tested `fortios.qcow2` — FortiOS 7.0.9 build 0444, valid eval, no registration needed
+    *   Created [[FortiGate-7.0.9-PreLicensed]] with Linux + Windows import guide
+    *   Wrote [[Docker-Services-Guide]] — IP configs for PostgreSQL, App-Server, Grafana, Prometheus, Traffic-Gen
+    *   Removed orphan FGT-Zen-Test node, removed duplicate Traffic-Gen-1 link
+    *   Added Traffic-Gen-2 Docker node on OVS-2 eth6 (LAN2)
+    *   Set `GNS3_USER=root` on all Docker containers for startup compatibility
+    *   Updated Device-Setup-Guide.md with Traffic-Gen-2
+    *   Added 7.0.9 pre-licensed image to both Linux and Windows setup guides
+    *   Wiring audit: 16 nodes, 16 links, zero conflicts
+    *   Updated facts.md, progress.md, log.md
+    *   Pushed to GitHub
+*   **Current Status**: Pre-licensed 7.0.9 available, Docker services documented, wiring fixed.
