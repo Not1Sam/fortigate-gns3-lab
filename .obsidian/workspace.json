@@ -4,21 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "d5f9d218f287d282",
+        "id": "f25e2c73a41c915c",
         "type": "tabs",
         "children": [
           {
-            "id": "432d18a106c69098",
+            "id": "1cb715f9e4fac5ca",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03_GNS3_Labs/Topology-Setup-Guide.md",
+                "file": "Rapport-de-Stage/demo-script.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Topology-Setup-Guide"
+              "title": "demo-script"
             }
           }
         ]
@@ -41,7 +41,9 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Files"
@@ -175,41 +177,49 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "obsidian-livesync:Replicate": false,
+      "obsidian-livesync:Show Log": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "obsidian-livesync:Show Customization sync": false
     }
   },
-  "active": "432d18a106c69098",
+  "active": "1cb715f9e4fac5ca",
   "lastOpenFiles": [
-    "03_GNS3_Labs/Docker-Services-Guide.md",
-    "docker/alpine-dhcp/Dockerfile",
-    "docker/alpine-dhcp",
-    "docker",
-    "03_GNS3_Labs/Setup-Guide-Windows.md",
-    "03_GNS3_Labs/Setup-Guide-Linux.md",
-    "03_GNS3_Labs/Device-Setup-Guide.md",
-    "03_GNS3_Labs/FortiGate-7.0.9-PreLicensed.md",
     "03_GNS3_Labs/Topology.canvas",
+    "README.md",
     "03_GNS3_Labs/Topology-Setup-Guide.md",
+    "03_GNS3_Labs/Topology-Modified.canvas",
+    "GNS3-Images/fgt-v7.4.12.qcow2",
+    "GNS3-Images/fortios.qcow2",
+    "GNS3-Images",
+    "Rapport-de-Stage/demo-script.md",
+    "Rapport-de-Stage/Rapport-Stage-Axeli-2026.pdf",
+    "Rapport-Stage-Axeli-2026.pdf",
+    "main.pdf",
+    "Rapport-de-Stage/main.pdf",
+    "Rapport-de-Stage/main.blg",
+    "Rapport-de-Stage/main.bbl",
+    "Rapport-de-Stage/main.toc",
+    "memory/progress.md",
+    "memory/decisions.md",
+    "memory/facts.md",
+    "03_GNS3_Labs/GUIDE-COMPLET-TOPOLOGIE-MODIFIEE.md",
+    "03_GNS3_Labs/Device-Setup-Guide.md",
     "03_GNS3_Labs/Sandbox_Expansion_Guide.md",
+    "03_GNS3_Labs/Setup-Guide-Linux.md",
+    "03_GNS3_Labs/Setup-Guide-Windows.md",
+    "03_GNS3_Labs/Docker-Services-Guide.md",
+    "03_GNS3_Labs/FortiGate-7.0.9-PreLicensed.md",
     "progress/bingus.md",
     "progress/_template_.md",
-    "03_GNS3_Labs/phase-10-logging",
-    "03_GNS3_Labs/phase-09-oci",
-    "03_GNS3_Labs/phase-08-vpn",
-    "03_GNS3_Labs/phase-07-security",
-    "03_GNS3_Labs/phase-06-docker",
-    "03_GNS3_Labs/phase-05-routing",
-    "03_GNS3_Labs/phase-04-policies",
     "03_GNS3_Labs/Full-Topology-Spec.md",
     "03_GNS3_Labs/Nodes-Reference.md",
-    "memory/facts.md",
-    "memory/decisions.md",
     "ovs-REFERENCE.md",
     "ROADMAP.md",
     "REQUIREMENTS.md",

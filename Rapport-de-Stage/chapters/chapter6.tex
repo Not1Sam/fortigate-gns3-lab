@@ -1,0 +1,58 @@
+\chapter{Limites et Contournements}
+\label{chap:limites}
+
+La licence d'évaluation FortiGate est la contrainte centrale du projet. Elle limite les interfaces à 3, les politiques firewall à 3, les routes à 3, et n'inclut pas les mises à jour FortiGuard. Les tables suivantes résument les solutions adoptées pour chaque fonctionnalité impactée.
+
+\section{FortiGuard absent --- Solutions de contournement}
+
+\begin{table}[H]
+\centering
+\caption{Contournements pour les profils de sécurité sans FortiGuard}
+\label{tab:workarounds}
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Fonctionnalité} & \textbf{Solution} & \textbf{Impact} \\
+\hline
+Antivirus & Fichier EICAR (test standard 68 octets) & Détection partielle via signatures factory \\
+\hline
+IPS & Signatures factory (SQLi, XSS, port scan) & Attaques courantes bloquées, variantes récentes non couvertes \\
+\hline
+Web Filter & URLs définies manuellement dans des listes statiques & Pas de catégorisation automatique \\
+\hline
+DNS Filter & Domaines bloqués manuellement & Pas de classification dynamique \\
+\hline
+Application Control & Signatures factory limitées (HTTP, DNS) & Fonctionnalité réduite \\
+\hline
+SSL Inspection & Certificat CA auto-signé généré & Non appliqué aux politiques (limite de 3) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Compromis architecture}
+
+La contrainte de 3 interfaces a forcé un choix entre HA complet et routage inter-LAN. La topologie finale combine les deux : un Docker Router assure le routage cross-LAN, libérant le port3 exclusivement pour le heartbeat HA.
+
+\begin{table}[H]
+\centering
+\caption{Compromis HA vs Routage inter-LAN}
+\label{tab:ha-routing}
+\begin{tabularx}{\textwidth}{|X|X|X|}
+\hline
+\textbf{Option} & \textbf{Avantage} & \textbf{Inconvénient} \\
+\hline
+HA Active-Passive + Docker Router & Démo failover + routage inter-LAN & Complexe à déployer \\
+\hline
+Deux FGTs + transit OSPF & Routage simple & Pas de démo HA live \\
+\hline
+HA seul (pas d'inter-LAN) & Simple & Pas de routage entre LANs \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Absence de FortiAnalyzer / FortiManager}
+
+Le logging est assuré par un récepteur syslog (container Docker) et Grafana pour les tableaux de bord. FortiAnalyzer et FortiManager n'étaient pas disponibles en licence eval.
+
+\section{VPN et BGP}
+
+L'IPSec VPN n'a pas pu être finalisé (chiffrements faibles en eval + firewall cloud bloquant les paquets IKE). Le VPN SSL n'est pas réalisable sans port ssl.root. BGP n'a pas été démontré en raison de la limite de 3 routes.

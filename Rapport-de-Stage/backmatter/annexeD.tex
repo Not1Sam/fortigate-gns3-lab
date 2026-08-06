@@ -1,0 +1,121 @@
+\chapter{Scripts Docker}
+\label{annexe:docker}
+
+\section{Dockerfile appServer-1}
+
+\begin{lstlisting}[language=bash, caption={Dockerfile pour le serveur d'application Flask}]
+FROM python:3.11-slim
+
+WORKDIR /opt
+
+RUN pip install flask psycopg2-binary requests
+
+COPY app.py .
+
+EXPOSE 80
+
+CMD ["python3", "app.py"]
+\end{lstlisting}
+
+\section{Application Flask (app.py)}
+
+\begin{lstlisting}[language=python, caption={Serveur d'application Flask}]
+from flask import Flask, request
+import psycopg2, os
+
+app = Flask(__name__)
+
+DB_HOST = os.getenv("DB_HOST", "192.168.10.11")
+DB_NAME = os.getenv("DB_NAME", "appdb")
+DB_USER = os.getenv("DB_USER", "appuser")
+DB_PASS = os.getenv("DB_PASS", "apppass")
+
+@app.route("/")
+def home():
+    return "<h1>App Server</h1><p>Connected to PostgreSQL</p>"
+
+@app.route("/health")
+def health():
+    return {"status": "ok", "service": "app-server"}
+
+@app.route("/db-check")
+def db_check():
+    try:
+        conn = psycopg2.connect(host=DB_HOST, dbname=DB_NAME,
+                                user=DB_USER, password=DB_PASS)
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        return {"database": "connected", "result": cur.fetchone()[0]}
+    except Exception as e:
+        return {"database": "error", "message": str(e)}, 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80)
+\end{lstlisting}
+
+\section{Script dnsmasq (DHCP-Server)}
+
+\begin{lstlisting}[language=bash, caption={Configuration dnsmasq pour le serveur DHCP}]
+#!/bin/sh
+ip addr add 192.168.20.2/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+
+cat > /etc/dnsmasq.conf << EOF
+interface=eth0
+dhcp-range=192.168.20.100,192.168.20.200,255.255.255.0,12h
+dhcp-option=3,192.168.20.1
+dhcp-option=6,8.8.8.8
+EOF
+
+dnsmasq --no-daemon
+\end{lstlisting}
+
+\section{Configuration PostgreSQL}
+
+\begin{lstlisting}[language=bash, caption={Initialisation de la base de donnees}]
+# Demarrer PostgreSQL
+su - postgres -c "pg_ctl -D /var/lib/postgresql/data start"
+
+# Creer la base et l'utilisateur
+su - postgres -c "psql -c \"CREATE DATABASE appdb;\""
+su - postgres -c "psql -c \"CREATE USER appuser WITH PASSWORD 'apppass';\""
+su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE appdb TO appuser;\""
+
+# Creer les tables
+su - postgres -c "psql -d appdb -c \"
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100)
+);
+
+CREATE TABLE requests (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO users (name, email) VALUES
+    ('Alice', 'alice@example.com'),
+    ('Bob', 'bob@example.com'),
+    ('Charlie', 'charlie@example.com');
+\""
+\end{lstlisting}
+
+
+\begin{thebibliography}{12}
+    \bibitem{1} Fortinet. \textit{FortiOS 7.4 --- Administration Guide}. Fortinet Documentation, 2024. Disponible sur : \url{https://docs.fortinet.com}
+    \bibitem{2} Fortinet. \textit{FortiGate --- High Availability Configuration Guide}. Fortinet Documentation, 2024.
+    \bibitem{3} Fortinet. \textit{FortiGate --- IPSec VPN Configuration Guide}. Fortinet Documentation, 2024.
+    \bibitem{4} Fortinet. \textit{FortiGate --- SSL VPN Configuration Guide}. Fortinet Documentation, 2024.
+    \bibitem{5} Fortinet. \textit{FortiGate --- Security Profiles Guide}. Fortinet Documentation, 2024.
+    \bibitem{6} GNS3 Documentation. \textit{GNS3 --- User Guide}. Disponible sur : \url{https://docs.gns3.com}
+    \bibitem{7} Coursera. \textit{FortiGate Administrator --- Module 1 à 7}. Fortinet / Coursera, 2026.
+    \bibitem{8} Coursera. \textit{Enterprise Firewall Administrator --- Module 1 à 5}. Fortinet / Coursera, 2026.
+    \bibitem{9} Coursera. \textit{FortiAnalyzer Administrator --- Module 1 à 4}. Fortinet / Coursera, 2026.
+    \bibitem{10} Moyen, J.-P. \textit{Les réseaux}. Eyrolles, 6e édition, 2012.
+    \bibitem{11} Axeli. \textit{Site officiel --- Présentation de l'entreprise}. Disponible sur : \url{https://www.axeli.ma}
+    \bibitem{12} CDIO Initiative. \textit{EMSI --- Moroccan School of Engineering Sciences}. Disponible sur : \url{https://www.cdio.org}
+\end{thebibliography}

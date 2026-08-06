@@ -4,25 +4,25 @@
 		{"id":"nat1","type":"text","text":"NAT1 (Cloud)\n192.168.122.1/24","x":673,"y":120,"width":285,"height":83,"color":"rgba(59, 130, 246, 0.22)"},
 		{"id":"switch1","type":"text","text":"Switch1 (WAN)","x":673,"y":237,"width":285,"height":67,"color":"rgba(59, 130, 246, 0.32)"},
 		{"id":"oci","type":"text","text":"OCI Cloud\nThreat Simulator\nIPsec VPN","x":121,"y":4,"width":285,"height":100,"color":"rgba(139, 92, 246, 0.15)"},
-		{"id":"fgts","type":"text","text":"FGT-Secondary\nport1: WAN (DHCP)\nport2: LAN2 192.168.20.1/24\nport3: Transit 10.0.0.2/30","x":976,"y":460,"width":340,"height":159,"color":"rgba(14, 165, 233, 0.15)"},
-		{"id":"ospf","type":"text","text":"OSPF over Transit","x":676,"y":594,"width":249,"height":50,"color":"rgba(236, 72, 153, 0.25)"},
-		{"id":"ovs1","type":"text","text":"OVS-LAN1\nbr0","x":373,"y":702,"width":249,"height":83,"color":"rgba(245, 158, 11, 0.18)"},
-		{"id":"ovs2","type":"text","text":"OVS-LAN2\nbr0","x":1049,"y":702,"width":249,"height":83,"color":"rgba(14, 165, 233, 0.18)"},
-		{"id":"lan2-clients","type":"text","text":"LAN2 Clients\nAlpine DHCP\nUbuntu Desktop\nGrafana\nPrometheus\nTraffic-Gen","x":1031,"y":870,"width":285,"height":183,"color":"rgba(14, 165, 233, 0.1)"},
-		{"id":"lan1-clients","type":"text","text":"LAN1 Clients\nPC1 (VPCS)\nwebterm-1\nApp-Server\nPostgreSQL","x":355,"y":886,"width":285,"height":150,"color":"rgba(245, 158, 11, 0.1)"},
-		{"id":"fgtp","type":"text","text":"FGT-Primary\nport1: WAN (DHCP)\nport2: LAN1 192.168.10.1/24\nport3: Transit 10.0.0.1/30","x":337,"y":469,"width":320,"height":175,"color":"rgba(245, 158, 11, 0.15)"},
-		{"id":"transit","type":"text","text":"Transit Link\n10.0.0.0/30","x":709,"y":718,"width":249,"height":67,"color":"rgba(236, 72, 153, 0.15)"}
+		{"id":"ospf","type":"text","text":"OSPF over Transit","x":673,"y":660,"width":249,"height":50,"color":"rgba(236, 72, 153, 0.25)"},
+		{"id":"transit","type":"text","text":"Transit Link\n10.0.0.0/30","x":673,"y":720,"width":249,"height":67,"color":"rgba(236, 72, 153, 0.15)"},
+		{"id":"fgtp","type":"text","text":"FGT-Primary\nfgt-v7.4.12.qcow2\nport1: WAN (DHCP)\nport2: LAN1 192.168.10.1/24\nport3: Transit 10.0.0.1/30","x":177,"y":460,"width":363,"height":175,"color":"rgba(245, 158, 11, 0.15)"},
+		{"id":"fgts","type":"text","text":"FGT-Secondary\nfgt-v7.4.12.qcow2\nport1: WAN (DHCP)\nport2: LAN2 192.168.20.1/24\nport3: Transit 10.0.0.2/30","x":1060,"y":460,"width":360,"height":175,"color":"rgba(14, 165, 233, 0.15)"},
+		{"id":"ovs1","type":"text","text":"OVS-LAN1\nbr0","x":234,"y":830,"width":249,"height":83,"color":"rgba(245, 158, 11, 0.18)"},
+		{"id":"lan1-clients","type":"text","text":"LAN1 Clients\nPC1 (VPCS)\nwebterm-1\nApp-Server\nPostgreSQL","x":216,"y":977,"width":285,"height":150,"color":"rgba(245, 158, 11, 0.1)"},
+		{"id":"ovs2","type":"text","text":"OVS-LAN2\nbr0","x":1116,"y":789,"width":249,"height":83,"color":"rgba(14, 165, 233, 0.18)"},
+		{"id":"lan2-clients","type":"text","text":"LAN2 Clients\nAlpine DHCP\nUbuntu Desktop\nGrafana\nPrometheus\nTraffic-Gen","x":1098,"y":961,"width":285,"height":183,"color":"rgba(14, 165, 233, 0.1)"}
 	],
 	"edges":[
 		{"id":"e1","fromNode":"internet","fromSide":"bottom","toNode":"nat1","toSide":"top","color":"rgba(59, 130, 246, 0.4)"},
 		{"id":"e2","fromNode":"nat1","fromSide":"bottom","toNode":"switch1","toSide":"top","color":"rgba(59, 130, 246, 0.4)"},
-		{"id":"e3","fromNode":"switch1","fromSide":"bottom","toNode":"fgtp","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1"},
-		{"id":"e4","fromNode":"switch1","fromSide":"bottom","toNode":"fgts","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1"},
-		{"id":"e5","fromNode":"fgtp","fromSide":"bottom","toNode":"ovs1","toSide":"top","color":"rgba(245, 158, 11, 0.5)","label":"port2"},
-		{"id":"e6","fromNode":"fgts","fromSide":"bottom","toNode":"ovs2","toSide":"top","color":"rgba(14, 165, 233, 0.5)","label":"port2"},
-		{"id":"e7","fromNode":"fgtp","fromSide":"right","toNode":"fgts","toSide":"left","color":"rgba(236, 72, 153, 0.5)","label":"port3 transit"},
+		{"id":"e3","fromNode":"switch1","fromSide":"bottom","toNode":"fgtp","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1 WAN"},
+		{"id":"e4","fromNode":"switch1","fromSide":"bottom","toNode":"fgts","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1 WAN"},
+		{"id":"e5","fromNode":"fgtp","fromSide":"bottom","toNode":"ovs1","toSide":"top","color":"rgba(245, 158, 11, 0.5)","label":"port2 LAN1"},
+		{"id":"e6","fromNode":"fgts","fromSide":"bottom","toNode":"ovs2","toSide":"top","color":"rgba(14, 165, 233, 0.5)","label":"port2 LAN2"},
 		{"id":"e8","fromNode":"ovs1","fromSide":"bottom","toNode":"lan1-clients","toSide":"top","color":"rgba(245, 158, 11, 0.4)"},
 		{"id":"e9","fromNode":"ovs2","fromSide":"bottom","toNode":"lan2-clients","toSide":"top","color":"rgba(14, 165, 233, 0.4)"},
-		{"id":"e10","fromNode":"oci","fromSide":"right","toNode":"internet","toSide":"left","color":"rgba(139, 92, 246, 0.4)","label":"IPsec VPN"}
+		{"id":"e10","fromNode":"oci","fromSide":"right","toNode":"internet","toSide":"left","color":"rgba(139, 92, 246, 0.4)","label":"IPsec VPN"},
+		{"id":"6d941ccb97728cbd","fromNode":"fgtp","fromSide":"right","toNode":"fgts","toSide":"left"}
 	]
 }

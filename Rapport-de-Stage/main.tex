@@ -1,0 +1,40 @@
+\documentclass[12pt,a4paper,openany]{report}
+
+% --- Import packages ---
+\input{styles/packages}
+
+% --- Import formatting ---
+\input{styles/formatting}
+
+% ==============================
+% DOCUMENT START
+% ==============================
+\begin{document}
+
+% --- Front matter ---
+\input{frontmatter/titlepage}
+\input{frontmatter/acknowledgements}
+\input{frontmatter/abstract}
+\input{frontmatter/abbreviations}
+\input{frontmatter/planning}
+\input{frontmatter/toc}
+
+% --- Chapters ---
+\include{chapters/chapter1}
+\include{chapters/chapter2}
+\include{chapters/chapter3}
+\include{chapters/chapter4}
+\include{chapters/chapter5}
+\include{chapters/chapter6}
+\include{chapters/chapter7}
+\include{chapters/chapter8}
+\include{chapters/chapter9}
+
+% --- Annexes ---
+\appendix
+\input{backmatter/annexeA}
+\input{backmatter/annexeB}
+\input{backmatter/annexeC}
+\input{backmatter/annexeD}
+
+\end{document}

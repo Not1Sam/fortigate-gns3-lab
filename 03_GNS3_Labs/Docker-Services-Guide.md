@@ -1,16 +1,18 @@
 ---
-title: Docker Services — IP Config & App Deployment
+title: Docker Services — IP Config & App Deployment (Modified Topology)
 tags:
   - lab/docker
   - reference/services
 ---
 
-# Docker Services — IP Config & App Deployment
+# Docker Services — IP Config & App Deployment (Modified Topology)
 
 ## Network Layout
 
 | Service | Connected To | Subnet | Assigned IP |
 |---|---|---|---|
+| Docker Router eth0 | OVS-1 (LAN1) | 192.168.10.0/24 | 192.168.10.254 |
+| Docker Router eth1 | OVS-2 (LAN2) | 192.168.20.0/24 | 192.168.20.254 |
 | DHCP-Server (Alpine dnsmasq) | OVS-2 (LAN2) | 192.168.20.0/24 | 192.168.20.2 |
 | Ubuntu Desktop | OVS-2 (LAN2) | 192.168.20.0/24 | DHCP |
 | Traffic-Gen-1 | OVS-2 (LAN2) | 192.168.20.0/24 | 192.168.20.10 |
@@ -21,6 +23,25 @@ tags:
 | PostgreSQL-1 | OVS-1 (LAN1) | 192.168.10.0/24 | 192.168.10.11 |
 | PC1 | OVS-1 (LAN1) | 192.168.10.0/24 | DHCP |
 
+## Step 0 — Build Docker Router
+
+```bash
+docker build -t docker-router:latest - << 'EOF'
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y iproute2 iptables && rm -rf /var/lib/apt/lists/*
+CMD ["sh", "-c", "\
+    ip addr add 192.168.10.254/24 dev eth0 && \
+    ip addr add 192.168.20.254/24 dev eth1 && \
+    ip link set eth0 up && \
+    ip link set eth1 up && \
+    echo 1 > /proc/sys/net/ipv4/ip_forward && \
+    echo 'nameserver 8.8.8.8' > /etc/resolv.conf && \
+    tail -f /dev/null"]
+EOF
+```
+
+GNS3 template: 2 adapters, Telnet console.
+
 ## Step 1 — Start Docker Nodes
 
 In GNS3 GUI, start each Docker node one by one. If they stay "Created" status:
@@ -30,7 +51,7 @@ In GNS3 GUI, start each Docker node one by one. If they stay "Created" status:
 
 ## Step 2 — Configure PostgreSQL
 
-Console into PostgreSQL-1 (Telnet port 5017):
+Console into PostgreSQL-1:
 
 ```bash
 # Set IP
@@ -52,7 +73,7 @@ su - postgres -c "psql -c '\\l'"
 
 ## Step 3 — Configure App Server
 
-Console into appServer-1 (Telnet port 5015):
+Console into appServer-1:
 
 ```bash
 # Set IP
@@ -102,12 +123,12 @@ EOF
 python3 /opt/app.py &
 ```
 
-Verify: `curl http://192.168.10.10/` should return the HTML.  
+Verify: `curl http://192.168.10.10/` should return the HTML.
 `curl http://192.168.10.10/db-check` should return `{"database": "connected"}`.
 
 ## Step 4 — Configure Grafana
 
-Console into Grafana-1 (VNC port 5903):
+Console into Grafana-1:
 
 ```bash
 # Set IP
@@ -117,7 +138,7 @@ ip route add default via 192.168.20.1
 echo nameserver 8.8.8.8 > /etc/resolv.conf
 ```
 
-Access: `http://192.168.20.11:3000` (from FGT-Secondary LAN2 or through port forwarding).  
+Access: `http://192.168.20.11:3000` (from LAN2).
 Default login: `admin` / `admin`.
 
 ### Add Prometheus datasource
@@ -128,7 +149,7 @@ Default login: `admin` / `admin`.
 
 ## Step 5 — Configure Prometheus
 
-Console into Prometheus-1 (VNC port 5902):
+Console into Prometheus-1:
 
 ```bash
 # Set IP
@@ -142,7 +163,7 @@ Access: `http://192.168.20.12:9090` (from LAN2).
 
 ## Step 6 — Configure Traffic-Gen-1
 
-Console into Traffic-Gen-1 (Telnet port 5016):
+Console into Traffic-Gen-1:
 
 ```bash
 # Set IP
@@ -150,6 +171,9 @@ ip addr add 192.168.20.10/24 dev eth0
 ip link set eth0 up
 ip route add default via 192.168.20.1
 echo nameserver 8.8.8.8 > /etc/resolv.conf
+
+# Install tools
+apk add --no-cache curl busybox-extras
 
 # Generate traffic to various targets
 while true; do
@@ -160,7 +184,19 @@ while true; do
 done &
 ```
 
-## Step 7 — Verify End-to-End
+## Step 7 — Verify Cross-LAN Routing (Docker Router)
+
+```bash
+# From PC1 (LAN1):
+PC1> ping 192.168.20.1
+PC1> ping 192.168.20.11
+
+# From Ubuntu (LAN2):
+ping 192.168.10.1
+ping 192.168.10.10
+```
+
+## Step 8 — Verify End-to-End
 
 | Test | Command | Expected |
 |---|---|---|
@@ -168,5 +204,6 @@ done &
 | DB connectivity | `curl http://192.168.10.10/db-check` | `{"database": "connected"}` |
 | Grafana UI | Browser to `http://192.168.20.11:3000` | Login page |
 | Prometheus UI | Browser to `http://192.168.20.12:9090` | UI |
-| Cross-LAN ping | From Ubuntu: `ping 192.168.10.10` | Reachable via transit |
-| Internet on LAN2 | From DHCP-Server: `ping 8.8.8.8` | Reachable via NAT |
+| Cross-LAN ping | From PC1: `ping 192.168.20.10` | Reachable via Docker Router |
+| Internet on LAN1 | From PC1: `ping 8.8.8.8` | Reachable via FGT-Primary |
+| Internet on LAN2 | From Ubuntu: `ping 8.8.8.8` | Reachable via FGT-Secondary |

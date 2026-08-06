@@ -1,6 +1,6 @@
-# Device Setup Guide
+# Device Setup Guide (Modified Topology)
 
-Per-node setup instructions for every device in the topology.
+Per-node setup instructions for every device in the modified topology (4 FGTs, Docker Router, HA).
 
 ---
 
@@ -12,10 +12,9 @@ Provides WAN internet access for the lab.
 1. Right-click NAT1 → Configure → check `virbr0`
 2. Verify: `ip addr show virbr0` → should show `192.168.122.1/24`
 
-**Windows (GNS3 VM):** Uses `VMnet8` (VMware NAT adapter) or VirtualBox host-only adapter.
+**Windows (GNS3 VM):** Uses `VMnet8` (VMware NAT adapter).
 1. Find the adapter: run `ipconfig` on Windows host, look for VMware VMnet8
 2. Right-click NAT1 → Configure → check that adapter
-3. Create a Cloud template pointing to that interface
 
 ---
 
@@ -29,6 +28,8 @@ No configuration needed — plug-and-play L2 switch.
 | a0p0 | NAT1 |
 | a0p1 | FGT-Primary port1 |
 | a0p2 | FGT-Secondary port1 |
+| a0p3 | FGT-Primary-HA port1 |
+| a0p4 | FGT-Secondary-HA port1 |
 
 ---
 
@@ -41,18 +42,16 @@ No configuration needed — plug-and-play L2 switch.
 ### 3.1 Interfaces
 ```
 config system interface
-    edit port1
+    edit "port1"
         set mode dhcp
         set allowaccess ping https ssh
     next
-    edit port2
-        set mode static
+    edit "port2"
         set ip 192.168.10.1 255.255.255.0
-        set allowaccess ping
+        set allowaccess ping https ssh
     next
-    edit port3
-        set mode static
-        set ip 10.0.0.1 255.255.255.252
+    edit "port3"
+        set ip 169.254.0.1 255.255.255.252
         set allowaccess ping
     next
 end
@@ -62,7 +61,7 @@ end
 ```
 config router static
     edit 1
-        set device port1
+        set device "port1"
         set gateway 192.168.122.1
     next
 end
@@ -82,118 +81,78 @@ end
 ```
 config system dhcp server
     edit 1
-        set interface port2
-        set netmask 255.255.255.0
+        set interface "port2"
         set default-gateway 192.168.10.1
+        set netmask 255.255.255.0
         set dns-service default
-        set vci-match disable
         config ip-range
             edit 1
                 set start-ip 192.168.10.100
                 set end-ip 192.168.10.200
             next
         end
+        set dns-service default
     next
 end
 ```
 
-### 3.5 Firewall Policies
+### 3.5 Firewall Policy (LAN1 → WAN)
 ```
-# LAN1 -> WAN (SNAT)
 config firewall policy
     edit 1
         set name "LAN1-to-WAN"
-        set srcintf port2
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
+        set srcintf "port2"
+        set dstintf "port1"
+        set srcaddr "all"
+        set dstaddr "all"
         set action accept
-        set schedule always
-        set service ALL
+        set schedule "always"
+        set service "HTTP" "HTTPS" "DNS" "PING"
+        set logtraffic all
         set nat enable
-    next
-end
-
-# Transit -> WAN (SNAT)
-config firewall policy
-    edit 2
-        set name "Transit-to-WAN"
-        set srcintf port3
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-end
-
-# Transit -> LAN1 (inter-LAN)
-config firewall policy
-    edit 3
-        set name "Transit-to-LAN1"
-        set srcintf port3
-        set dstintf port2
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
     next
 end
 ```
 
-### 3.6 OSPF
+### 3.6 HA (Master, priority 200)
 ```
-config router ospf
-    set router-id 10.0.0.1
-    config area
-        edit 0.0.0.0
-    next
-    config network
-        edit 1
-            set prefix 192.168.10.0 255.255.255.0
-            set area 0.0.0.0
-        next
-        edit 2
-            set prefix 10.0.0.0 255.255.255.252
-            set area 0.0.0.0
-        next
-    end
+config system ha
+    set group-name "FortiLab-HA"
+    set mode a-p
+    set hbdev "port3"
+    set priority 200
+    set session-sync-dev "port3"
 end
 ```
 
 ### 3.7 Verify
 ```
+get system interface physical
 execute ping 8.8.8.8
-execute ping 10.0.0.2
-get router info ospf neighbor
+get system ha status
 ```
 
 ---
 
-## 4. FGT-Secondary
+## 4. FGT-Primary-HA
 
-**Template:** Linked clone of FGT-Primary, 2048 MB RAM, 1 vCPU, 8 adapters
+**Template:** QEMU, `fortios.qcow2` (7.0.9 pre-licensed), 2048 MB RAM, 1 vCPU, 8 adapters
 **Console:** Telnet
 **Login:** `admin` / no password
 
 ### 4.1 Interfaces
 ```
 config system interface
-    edit port1
+    edit "port1"
         set mode dhcp
         set allowaccess ping https ssh
     next
-    edit port2
-        set mode static
-        set ip 192.168.20.1 255.255.255.0
+    edit "port2"
+        set ip 192.168.10.2 255.255.255.0
         set allowaccess ping
     next
-    edit port3
-        set mode static
-        set ip 10.0.0.2 255.255.255.252
+    edit "port3"
+        set ip 169.254.0.2 255.255.255.252
         set allowaccess ping
     next
 end
@@ -203,7 +162,7 @@ end
 ```
 config router static
     edit 1
-        set device port1
+        set device "port1"
         set gateway 192.168.122.1
     next
 end
@@ -217,165 +176,284 @@ config system dns
 end
 ```
 
-### 4.4 Firewall Policies
+### 4.4 HA (Backup, priority 100)
 ```
-# LAN2 -> WAN (SNAT)
+config system ha
+    set group-name "FortiLab-HA"
+    set mode a-p
+    set hbdev "port3"
+    set priority 100
+    set session-sync-dev "port3"
+end
+```
+
+### 4.5 Verify
+```
+get system ha status
+# Should show BACKUP
+```
+
+---
+
+## 5. FGT-Secondary
+
+**Template:** QEMU, `fgt-v7.4.12.qcow2`, 2048 MB RAM, 1 vCPU, 8 adapters
+**Console:** Telnet
+**Login:** `admin` / no password
+
+### 5.1 Interfaces
+```
+config system interface
+    edit "port1"
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
+    edit "port2"
+        set ip 192.168.20.1 255.255.255.0
+        set allowaccess ping https ssh
+    next
+    edit "port3"
+        set ip 169.254.0.3 255.255.255.252
+        set allowaccess ping
+    next
+end
+```
+
+### 5.2 Default Route
+```
+config router static
+    edit 1
+        set device "port1"
+        set gateway 192.168.122.1
+    next
+end
+```
+
+### 5.3 DNS
+```
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+```
+
+### 5.4 Firewall Policy (LAN2 → WAN)
+```
 config firewall policy
     edit 1
         set name "LAN2-to-WAN"
-        set srcintf port2
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
+        set srcintf "port2"
+        set dstintf "port1"
+        set srcaddr "all"
+        set dstaddr "all"
         set action accept
-        set schedule always
-        set service ALL
+        set schedule "always"
+        set service "HTTP" "HTTPS" "DNS" "PING"
+        set logtraffic all
         set nat enable
     next
 end
+```
 
-# Transit -> WAN (SNAT)
-config firewall policy
-    edit 2
-        set name "Transit-to-WAN"
-        set srcintf port3
-        set dstintf port1
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-        set nat enable
-    next
-end
-
-# Transit -> LAN2 (inter-LAN)
-config firewall policy
-    edit 3
-        set name "Transit-to-LAN2"
-        set srcintf port3
-        set dstintf port2
-        set srcaddr all
-        set dstaddr all
-        set action accept
-        set schedule always
-        set service ALL
-    next
+### 5.5 HA (Master, priority 200)
+```
+config system ha
+    set group-name "FortiLab-HA2"
+    set mode a-p
+    set hbdev "port3"
+    set priority 200
+    set session-sync-dev "port3"
 end
 ```
 
-### 4.5 OSPF
+### 5.6 Verify
 ```
-config router ospf
-    set router-id 10.0.0.2
-    config area
-        edit 0.0.0.0
-    next
-    config network
-        edit 1
-            set prefix 192.168.20.0 255.255.255.0
-            set area 0.0.0.0
-        next
-        edit 2
-            set prefix 10.0.0.0 255.255.255.252
-            set area 0.0.0.0
-        next
-    end
-end
-```
-
-### 4.6 Verify
-```
+get system interface physical
 execute ping 8.8.8.8
-execute ping 10.0.0.1
-get router info ospf neighbor
+get system ha status
 ```
 
 ---
 
-## 5. OVS-LAN1 (OpenvSwitch-1)
+## 6. FGT-Secondary-HA
+
+**Template:** QEMU, `fortios.qcow2` (7.0.9 pre-licensed), 2048 MB RAM, 1 vCPU, 8 adapters
+**Console:** Telnet
+**Login:** `admin` / no password
+
+### 6.1 Interfaces
+```
+config system interface
+    edit "port1"
+        set mode dhcp
+        set allowaccess ping https ssh
+    next
+    edit "port2"
+        set ip 192.168.20.2 255.255.255.0
+        set allowaccess ping
+    next
+    edit "port3"
+        set ip 169.254.0.4 255.255.255.252
+        set allowaccess ping
+    next
+end
+```
+
+### 6.2 Default Route
+```
+config router static
+    edit 1
+        set device "port1"
+        set gateway 192.168.122.1
+    next
+end
+```
+
+### 6.3 DNS
+```
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+```
+
+### 6.4 HA (Backup, priority 100)
+```
+config system ha
+    set group-name "FortiLab-HA2"
+    set mode a-p
+    set hbdev "port3"
+    set priority 100
+    set session-sync-dev "port3"
+end
+```
+
+### 6.5 Verify
+```
+get system ha status
+# Should show BACKUP
+```
+
+---
+
+## 7. OVS-LAN1
 
 **Template:** Docker, `gns3/openvswitch:latest`, 16 adapters
 **Console:** Telnet
 
-### 5.1 Setup
+### 7.1 Setup
 ```bash
 ovs-vsctl add-br br0
-for port in eth0 eth1 eth2 eth3 eth4; do
+for port in eth0 eth1 eth2 eth3 eth4 eth5 eth6; do
     ovs-vsctl add-port br0 $port
 done
 ovs-vsctl set-fail-mode br0 standalone
 ```
 
-### 5.2 Verify
+### 7.2 Verify
 ```bash
 ovs-vsctl show
-# Should show br0 with ports eth0-eth4
 ```
 
-### 5.3 Port Map
+### 7.3 Port Map
 | OVS Port | Connected To |
 |---|---|
 | eth0 | FGT-Primary port2 |
-| eth1 | PC1 |
-| eth2 | webterm-1 |
-| eth3 | appServer-1 |
-| eth4 | PostgreSQL-1 |
+| eth1 | FGT-Primary-HA port2 (passive) |
+| eth2 | PC1 |
+| eth3 | webterm-1 |
+| eth4 | appServer-1 |
+| eth5 | PostgreSQL-1 |
+| eth6 | Docker Router eth0 |
 
 ---
 
-## 6. OVS-LAN2 (OpenvSwitch-2)
+## 8. OVS-LAN2
 
 **Template:** Docker, `gns3/openvswitch:latest`, 16 adapters
 **Console:** Telnet
 
-### 6.1 Setup
+### 8.1 Setup
 ```bash
 ovs-vsctl add-br br0
-for port in eth0 eth1 eth2 eth3 eth4 eth5; do
+for port in eth0 eth1 eth2 eth3 eth4 eth5 eth6 eth7; do
     ovs-vsctl add-port br0 $port
 done
 ovs-vsctl set-fail-mode br0 standalone
 ```
 
-### 6.2 Verify
+### 8.2 Verify
 ```bash
 ovs-vsctl show
-# Should show br0 with ports eth0-eth5
 ```
 
-### 6.3 Port Map
+### 8.3 Port Map
 | OVS Port | Connected To |
 |---|---|
 | eth0 | FGT-Secondary port2 |
-| eth1 | Alpine-DHCP |
-| eth2 | Ubuntu Desktop |
-| eth3 | Traffic-Gen-1 |
-| eth4 | Grafana-1 |
-| eth5 | Prometheus-1 |
+| eth1 | FGT-Secondary-HA port2 (passive) |
+| eth2 | Alpine-DHCP |
+| eth3 | Ubuntu Desktop |
+| eth4 | Traffic-Gen-1 |
+| eth5 | Grafana-1 |
+| eth6 | Prometheus-1 |
+| eth7 | Docker Router eth1 |
 
 ---
 
-## 7. PC1 (VPCS)
+## 9. Docker Router
+
+**Template:** Docker, `docker-router:latest` (custom build), 2 adapters
+**Console:** Telnet
+
+### 9.1 Build Image
+```bash
+docker build -t docker-router:latest - << 'EOF'
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y iproute2 iptables && rm -rf /var/lib/apt/lists/*
+CMD ["sh", "-c", "\
+    ip addr add 192.168.10.254/24 dev eth0 && \
+    ip addr add 192.168.20.254/24 dev eth1 && \
+    ip link set eth0 up && \
+    ip link set eth1 up && \
+    echo 1 > /proc/sys/net/ipv4/ip_forward && \
+    echo 'nameserver 8.8.8.8' > /etc/resolv.conf && \
+    tail -f /dev/null"]
+EOF
+```
+
+### 9.2 Verify
+```bash
+ip addr show eth0   # 192.168.10.254/24
+ip addr show eth1   # 192.168.20.254/24
+cat /proc/sys/net/ipv4/ip_forward  # 1
+ping 192.168.10.1    # FGT-Primary LAN
+ping 192.168.20.1    # FGT-Secondary LAN
+```
+
+---
+
+## 10. PC1 (VPCS)
 
 **Template:** VPCS built-in
 **Console:** Telnet
 
-### 7.1 Setup
+### 10.1 Setup
 ```
 PC1> dhcp
 PC1> show ip
 ```
 
-### 7.2 Verify
+### 10.2 Verify
 ```
 PC1> ping 192.168.10.1
 PC1> ping 8.8.8.8
+PC1> ping 192.168.20.1
 ```
 
 ---
 
-## 8. webterm-1
+## 11. webterm-1
 
 **Template:** Docker, `gns3/webterm:latest`, 1 adapter
 **Console:** VNC
@@ -384,192 +462,170 @@ Gets IP via DHCP from FGT-Primary automatically. Open VNC console to use the bro
 
 ---
 
-## 9. Alpine-DHCP
+## 12. Alpine-DHCP
 
 **Template:** Docker, `alpine-dhcp:latest` (custom build), 1 adapter
 **Console:** Telnet
 
-### 9.1 Build Image
+### 12.1 Build Image
 ```bash
 docker build -t alpine-dhcp:latest - << 'EOF'
 FROM alpine:latest
 RUN apk add --no-cache dnsmasq
 CMD ["sh", "-c", "\
-echo 'interface=eth0' > /etc/dnsmasq.conf && \
-echo 'dhcp-range=192.168.20.100,192.168.20.200,12h' >> /etc/dnsmasq.conf && \
-echo 'dhcp-option=3,192.168.20.1' >> /etc/dnsmasq.conf && \
-echo 'dhcp-option=6,8.8.8.8' >> /etc/dnsmasq.conf && \
-ip addr add 192.168.20.2/24 dev eth0 && \
-ip link set eth0 up && \
-ip route add default via 192.168.20.1 && \
-dnsmasq --no-daemon"]
+    echo 'interface=eth0' > /etc/dnsmasq.conf && \
+    echo 'dhcp-range=192.168.20.100,192.168.20.200,12h' >> /etc/dnsmasq.conf && \
+    echo 'dhcp-option=3,192.168.20.1' >> /etc/dnsmasq.conf && \
+    echo 'dhcp-option=6,8.8.8.8' >> /etc/dnsmasq.conf && \
+    ip addr add 192.168.20.2/24 dev eth0 && \
+    ip link set eth0 up && \
+    ip route add default via 192.168.20.1 && \
+    dnsmasq --no-daemon"]
 EOF
 ```
 
-### 9.2 Verify
+### 12.2 Verify
 ```bash
 ps aux | grep dnsmasq
-# Or from console: check DHCP leases
 cat /var/lib/misc/dnsmasq.leases
 ```
 
 ---
 
-## 10. Ubuntu Desktop
+## 13. Ubuntu Desktop
 
 **Template:** QEMU, `ubuntu-24.04-minimal-cloudimg-amd64.img` (modified), 2048 MB RAM, 2 vCPU, 1 adapter
 **Console:** VNC
 **Credentials:** `ubuntu` / `gns3` (NOPASSWD sudo)
 
-### 10.1 Network Setup (DHCP)
+### 13.1 Network Setup
 ```bash
-# Automatic via Alpine DHCP server, but if needed:
 sudo dhcpcd enp2s0
 ip addr show enp2s0
 ```
 
-### 10.2 Verify Internet
+### 13.2 Verify
 ```bash
 ping 8.8.8.8
-curl ifconfig.me
 ```
 
 ---
 
-## 11. appServer-1 (Flask)
+## 14. appServer-1 (Flask)
 
 **Template:** Docker, `python:3.12-alpine`, 1 adapter
 **Console:** Telnet
 
-### 11.1 IP Setup
+### 14.1 IP Setup
 ```bash
 ip addr add 192.168.10.10/24 dev eth0
 ip link set eth0 up
 ip route add default via 192.168.10.1
+echo nameserver 8.8.8.8 > /etc/resolv.conf
 ```
 
-### 11.2 Deploy App
+### 14.2 Deploy App
 ```bash
-pip install flask psycopg2-binary
+pip install flask psycopg2-binary requests --break-system-packages
+python3 /opt/app.py &
 ```
 
-```python
-# /app.py
-from flask import Flask
-app = Flask(__name__)
-@app.route('/')
-def hello():
-    return 'Hello from App-Server!'
-@app.route('/db')
-def db_check():
-    import psycopg2
-    try:
-        conn = psycopg2.connect(host='192.168.10.11', dbname='appdb', user='postgres', password='gns3')
-        return 'DB OK'
-    except Exception as e:
-        return f'DB Error: {e}'
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
-```
-
-### 11.3 Run
+### 14.3 Verify
 ```bash
-python /app.py &
-```
-
-### 11.4 Verify
-```bash
-curl http://127.0.0.1:80/
+curl http://127.0.0.1/
+curl http://127.0.0.1/db-check
 ```
 
 ---
 
-## 12. PostgreSQL-1
+## 15. PostgreSQL-1
 
 **Template:** Docker, `postgres:16-alpine`, 1 adapter
 **Console:** Telnet
 **Environment:** `POSTGRES_PASSWORD=gns3`
 
-### 12.1 IP Setup
+### 15.1 IP Setup
 ```bash
 ip addr add 192.168.10.11/24 dev eth0
 ip link set eth0 up
 ip route add default via 192.168.10.1
 ```
 
-### 12.2 Create Database
+### 15.2 Create Database
 ```bash
-psql -U postgres -c "CREATE DATABASE appdb;"
+su - postgres -c "pg_ctl -D /var/lib/postgresql/data start"
+su - postgres -c "psql -c 'CREATE DATABASE labdb;'"
+su - postgres -c "psql -c \"CREATE USER labuser WITH PASSWORD 'gns3lab';\""
+su - postgres -c "psql -c 'GRANT ALL PRIVILEGES ON DATABASE labdb TO labuser;'"
 ```
 
-### 12.3 Verify
+### 15.3 Verify
 ```bash
-psql -U postgres -c "\l"
+su - postgres -c "psql -c '\\l'"
 ```
 
 ---
 
-## 13. Grafana-1
+## 16. Grafana-1
 
 **Template:** Docker, `grafana/grafana:latest`, 1 adapter
 **Console:** VNC
 
-### 13.1 IP Setup
-```bash
-ip addr add 192.168.20.10/24 dev eth0
-ip link set eth0 up
-ip route add default via 192.168.20.1
-```
-
-### 13.2 Access
-Open VNC or browse to `http://192.168.20.10:3000`
-Default login: `admin` / `admin`
-
----
-
-## 14. Prometheus-1
-
-**Template:** Docker, `prom/prometheus:latest`, 1 adapter
-**Console:** VNC
-
-### 14.1 IP Setup
+### 16.1 IP Setup
 ```bash
 ip addr add 192.168.20.11/24 dev eth0
 ip link set eth0 up
 ip route add default via 192.168.20.1
 ```
 
-### 14.2 Access
-Open VNC or browse to `http://192.168.20.11:9090`
+### 16.2 Access
+Open VNC or browse to `http://192.168.20.11:3000`
+Default login: `admin` / `admin`
 
 ---
 
-## 15. Traffic-Gen-1
+## 17. Prometheus-1
 
-**Template:** Docker, `alpine:latest`, 1 adapter
-**Console:** Telnet
+**Template:** Docker, `prom/prometheus:latest`, 1 adapter
+**Console:** VNC
 
-### 15.1 IP Setup
+### 17.1 IP Setup
 ```bash
 ip addr add 192.168.20.12/24 dev eth0
 ip link set eth0 up
 ip route add default via 192.168.20.1
 ```
 
-### 15.2 Install Tools
+### 17.2 Access
+Open VNC or browse to `http://192.168.20.12:9090`
+
+---
+
+## 18. Traffic-Gen-1
+
+**Template:** Docker, `alpine:latest`, 1 adapter
+**Console:** Telnet
+
+### 18.1 IP Setup
+```bash
+ip addr add 192.168.20.10/24 dev eth0
+ip link set eth0 up
+ip route add default via 192.168.20.1
+```
+
+### 18.2 Install Tools
 ```bash
 apk add --no-cache curl busybox-extras
 ```
 
-### 15.3 Syslog Receiver
+### 18.3 Syslog Receiver
 ```bash
 nc -ulvp 514
 ```
 
-### 15.4 Verify Internet
+### 18.4 Verify
 ```bash
 curl ifconfig.me
-# Should show FGT-Secondary WAN IP
 ```
 
 ---
@@ -602,9 +658,9 @@ done &
 
 ## 17. OCI Cloud Instance (External)
 
-**Deployment:** Ubuntu 24.04 on Oracle Cloud (or any public cloud)
+**Deployment:** Ubuntu 24.04 on Oracle Cloud
 
-### 16.1 Security Group Rules
+### 19.1 Security Group Rules
 | Protocol | Port | Source |
 |---|---|---|
 | UDP | 500 | FGT-Primary WAN IP |
@@ -612,7 +668,7 @@ done &
 | TCP | 80, 443 | Both FGT WAN IPs |
 | ICMP | — | Both FGT WAN IPs |
 
-### 16.2 Libreswan IPsec
+### 19.2 Libreswan IPsec
 ```bash
 sudo apt update && sudo apt install -y libreswan
 
@@ -625,21 +681,21 @@ conn fgt-primary
     rightsubnet=192.168.10.0/24
     ikelifetime=24h
     lifetime=8h
-    ike=aes128-sha1-modp1024
-    phase2=aes128-sha1
+    ike=aes256-sha2_256;modp2048
+    phase2=aes256-sha2_256
     auto=start
 EOF
 
 sudo ipsec restart
 ```
 
-### 16.3 Threat Simulator
+### 19.3 Threat Simulator
 ```bash
 sudo apt install -y python3-flask socat
 sudo python3 /opt/threat-sim/app.py &
 ```
 
-### 16.4 Endpoints
+### 19.4 Endpoints
 | Endpoint | What It Simulates |
 |---|---|
 | `GET /eicar` | AV signature match |

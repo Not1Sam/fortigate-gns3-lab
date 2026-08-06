@@ -1,0 +1,79 @@
+\chapter{Introduction Générale}
+\label{chap:introduction}
+
+\section{Contexte du stage}
+
+Dans le cadre de ma formation d'ingénieur en Informatique et Réseaux à l'EMSI --- École Marocaine des Sciences de l'Ingénieur, campus de Rabat, j'ai effectué un stage de cinq semaines du 2 juillet au 8 août 2026 au sein de la société \textbf{Axeli}, spécialisée dans les services informatiques et l'infogérance au Maroc.
+
+Ce stage avait pour objectif principal de concevoir et de mettre en oeuvre un laboratoire de sécurité réseau complet, utilisant des pare-feux FortiGate dans un environnement virtualisé GNS3. L'expérience a permis de concilier les connaissances théoriques acquises en cours avec une mise en pratique professionnelle des technologies de sécurité réseau.
+
+\section{Objectifs du stage}
+
+Le stage s'est articulé autour de 16 objectifs définis par l'encadrant, couvrant l'ensemble des fonctionnalités d'un pare-feu FortiGate :
+
+Les objectifs ont été regroupés en trois catégories selon leur état d'avancement :
+
+\begin{table}[H]
+\centering
+\caption{Objectifs réalisés --- Fonctionnalités opérationnelles dans le laboratoire}
+\label{tab:objectifs-realises}
+\begin{tabularx}{\textwidth}{|c|X|c|}
+\hline
+\textbf{N°} & \textbf{Objectif} & \textbf{Statut} \\
+\hline
+1 & Configuration des firewall policies & Réalisé \\
+2 & Configuration du NAT (SNAT) & Réalisé \\
+3 & Routage statique & Réalisé \\
+4 & Routage inter-LAN (Docker Router) & Réalisé \\
+8 & High Availability (2 clusters actif-passif) & Réalisé \\
+15 & Authentification locale & Réalisé \\
+16 & Logging et supervision (mémoire + syslog) & Réalisé \\
+\hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Objectifs partiellement réalisés --- Fonctionnalités configurées mais non testables en conditions réelles}
+\label{tab:objectifs-partiels}
+\begin{tabularx}{\textwidth}{|c|X|X|}
+\hline
+\textbf{N°} & \textbf{Objectif} & \textbf{Explication} \\
+\hline
+9 & Antivirus & Profils configurés sur FortiGate, signatures factory uniquement (pas de FortiGuard). L'endpoint EICAR existe côté Docker mais le moteur AV ne dispose pas de mises à jour. \\
+\hline
+10 & IPS & Mêmes limitations que l'AV. Les signatures factory couvrent les attaques les plus courantes mais sans mise à jour. \\
+\hline
+12 & Web Filtering & Listes d'URL statiques configurées. Sans FortiGuard, la catégorisation automatique n'est pas disponible. \\
+\hline
+13 & DNS Filtering & Filtres DNS statiques configurés. Mêmes limitations que le Web Filtering. \\
+\hline
+14 & SSL Deep Inspection & Certificat CA auto-signé généré. Non appliqué aux politiques firewall (limite de 3 politiques). \\
+\hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Objectifs non réalisés --- Contraintes de licence et d'infrastructure}
+\label{tab:objectifs-non-realises}
+\begin{tabularx}{\textwidth}{|c|X|X|}
+\hline
+\textbf{N°} & \textbf{Objectif} & \textbf{Raison} \\
+\hline
+5 & Routage BGP & Remplacé par le Docker Router. Le routage dynamique n'a pas été implémenté faute de ports disponibles. \\
+\hline
+6 & VPN IPSec & Licence eval (chiffrements faibles) + firewall cloud (paquets bloqués avant réception). \\
+\hline
+7 & VPN SSL & Licence eval : 3 interfaces maximum, pas de port pour ssl.root. \\
+\hline
+11 & Application Control & Licence FortiGuard requise. Impossible sans abonnement. \\
+\hline
+\end{tabularx}
+\end{table}
+
+\noindent\textbf{Note :} Sur 16 objectifs, 7 ont été entièrement réalisés, 5 partiellement (profils configurés mais non testables sans FortiGuard), et 4 non réalisables (contraintes de licence ou d'infrastructure). La licence d'évaluation FortiGate a été le principal frein : elle limite l'appareil à 3 interfaces, 3 politiques firewall et 3 routes, et n'inclut pas les mises à jour de signatures FortiGuard.
+
+\section{Problématique}
+
+Comment concevoir un environnement de sécurité réseau fonctionnel et reproductible en utilisant des équipements virtualisés, tout en tenant compte des contraintes de licence et de matériel inhérentes à un environnement d'évaluation ? Cette problématique a guidé l'ensemble des choix d'architecture, de la topologie réseau jusqu'aux solutions de contournement mises en oeuvre pour chaque fonctionnalité indisponible.

@@ -1,0 +1,27 @@
+# GNS3 FortiGate Lab — .gitignore
+
+# Obsidian config (personal)
+.obsidian/workspace.json
+.obsidian/plugins/
+.obsidian/community-plugins.json
+
+# Large disk images (use Git LFS or download separately)
+*.qcow2
+*.img
+
+# Keep image directory structure
+!GNS3-Images/.gitkeep
+
+# LaTeX build files
+Rapport-de-Stage/*.aux
+Rapport-de-Stage/*.log
+Rapport-de-Stage/*.out
+Rapport-de-Stage/*.toc
+Rapport-de-Stage/*.fls
+Rapport-de-Stage/*.fdb_latexmk
+Rapport-de-Stage/*.synctex.gz
+Rapport-de-Stage/*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,41 @@
+{
+	"nodes":[
+		{"id":"69f63b13eb12c306","x":-909,"y":1079,"width":250,"height":60,"type":"text","text":""},
+		{"id":"legend","type":"text","text":"Changes from original:\n- Transit link replaced by Docker Router (cross-LAN routing)\n- port3 freed for HA heartbeat on both FGT pairs\n- 4 FGTs total (2 HA pairs)\n- SSL VPN uses ssl.root tunnel (no extra port needed)\n- BGP demo via redistribute connected","x":350,"y":1360,"width":690,"height":280,"color":"rgba(34, 197, 94, 0.1)"},
+		{"id":"internet","type":"text","text":"Internet / WAN","x":673,"y":20,"width":285,"height":67,"color":"rgba(59, 130, 246, 0.12)"},
+		{"id":"nat1","type":"text","text":"NAT1 (Cloud)\n192.168.122.1/24","x":673,"y":120,"width":285,"height":83,"color":"rgba(59, 130, 246, 0.22)"},
+		{"id":"switch1","type":"text","text":"Switch1 (WAN)\n5 ports","x":673,"y":237,"width":285,"height":67,"color":"rgba(59, 130, 246, 0.32)"},
+		{"id":"oci","type":"text","text":"OCI Cloud\nThreat Simulator\nIPsec VPN","x":121,"y":4,"width":285,"height":100,"color":"rgba(139, 92, 246, 0.15)"},
+		{"id":"fgtp","type":"text","text":"FGT-Primary (ACTIVE)\nfgt-v7.4.12.qcow2\nport1: WAN (DHCP)\nport2: LAN1 192.168.10.1/24\nport3: HA Heartbeat","x":100,"y":430,"width":320,"height":175,"color":"rgba(245, 158, 11, 0.15)"},
+		{"id":"fgts","type":"text","text":"FGT-Secondary (ACTIVE)\nfgt-v7.4.12.qcow2\nport1: WAN (DHCP)\nport2: LAN2 192.168.20.1/24\nport3: HA Heartbeat","x":1000,"y":430,"width":320,"height":175,"color":"rgba(14, 165, 233, 0.15)"},
+		{"id":"fgts-ha","type":"text","text":"FGT-Secondary-HA (STANDBY)\nfortios.qcow2 (7.0.9 pre-licensed)\nport1: WAN (DHCP)\nport2: LAN2 (passive)\nport3: HA Heartbeat","x":1600,"y":430,"width":420,"height":150,"color":"rgba(14, 165, 233, 0.1)"},
+		{"id":"ovs1","type":"text","text":"OVS-LAN1\nbr0","x":-200,"y":897,"width":200,"height":83,"color":"rgba(245, 158, 11, 0.18)"},
+		{"id":"lan1-clients","type":"text","text":"LAN1 Clients\nPC1 (VPCS)\nwebterm-1\nApp-Server\nPostgreSQL","x":-242,"y":1100,"width":285,"height":150,"color":"rgba(245, 158, 11, 0.1)"},
+		{"id":"router","type":"text","text":"Docker Router\n(Cross-LAN Routing)\neth0: 192.168.10.254/24 (LAN1)\neth1: 192.168.20.254/24 (LAN2)\nOSPF + BGP demo","x":530,"y":859,"width":390,"height":161,"color":"rgba(168, 85, 247, 0.15)"},
+		{"id":"ovs2","type":"text","text":"OVS-LAN2\nbr0","x":1381,"y":898,"width":200,"height":83,"color":"rgba(14, 165, 233, 0.18)"},
+		{"id":"ssl-vpn","type":"text","text":"SSL VPN\n(uses ssl.root tunnel)\nNo extra port needed!\n10.212.134.200-210","x":570,"y":605,"width":310,"height":120,"color":"rgba(236, 72, 153, 0.15)"},
+		{"id":"title","type":"text","text":"MODIFIED TOPOLOGY — Eval License Workarounds\n(Do not use for production — for supervisor demo only)","x":515,"y":-200,"width":625,"height":80,"color":"rgba(239, 68, 68, 0.15)"},
+		{"id":"fgtp-ha","type":"text","text":"FGT-Primary-HA (STANDBY)\nfortios.qcow2 (7.0.9 pre-licensed)\nport1: WAN (DHCP)\nport2: LAN1 (passive)\nport3: HA Heartbeat","x":-620,"y":442,"width":420,"height":150,"color":"rgba(245, 158, 11, 0.1)"},
+		{"id":"lan2-clients","type":"text","text":"LAN2 Clients\nAlpine DHCP\nUbuntu Desktop\nGrafana\nPrometheus\nTraffic-Gen","x":1339,"y":1100,"width":285,"height":183,"color":"rgba(14, 165, 233, 0.1)"}
+	],
+	"edges":[
+		{"id":"e1","fromNode":"internet","fromSide":"bottom","toNode":"nat1","toSide":"top","color":"rgba(59, 130, 246, 0.4)"},
+		{"id":"e2","fromNode":"nat1","fromSide":"bottom","toNode":"switch1","toSide":"top","color":"rgba(59, 130, 246, 0.4)"},
+		{"id":"e3","fromNode":"switch1","fromSide":"bottom","toNode":"fgtp","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1 WAN"},
+		{"id":"e4","fromNode":"switch1","fromSide":"bottom","toNode":"fgts","toSide":"top","color":"rgba(59, 130, 246, 0.4)","label":"port1 WAN"},
+		{"id":"e4b","fromNode":"switch1","fromSide":"left","toNode":"fgtp-ha","toSide":"top","color":"rgba(59, 130, 246, 0.3)","label":"port1 WAN"},
+		{"id":"e4c","fromNode":"switch1","fromSide":"right","toNode":"fgts-ha","toSide":"top","color":"rgba(59, 130, 246, 0.3)","label":"port1 WAN"},
+		{"id":"e5","fromNode":"fgtp","fromSide":"bottom","toNode":"ovs1","toSide":"top","color":"rgba(245, 158, 11, 0.5)","label":"port2 LAN1"},
+		{"id":"e5b","fromNode":"fgtp-ha","fromSide":"bottom","toNode":"ovs1","toSide":"top","color":"rgba(245, 158, 11, 0.3)","label":"port2 (passive)"},
+		{"id":"e6","fromNode":"fgts","fromSide":"bottom","toNode":"ovs2","toSide":"top","color":"rgba(14, 165, 233, 0.5)","label":"port2 LAN2"},
+		{"id":"e6b","fromNode":"fgts-ha","fromSide":"bottom","toNode":"ovs2","toSide":"top","color":"rgba(14, 165, 233, 0.3)","label":"port2 (passive)"},
+		{"id":"e7","fromNode":"fgtp","fromSide":"left","toNode":"fgtp-ha","toSide":"right","color":"rgba(236, 72, 153, 0.5)","label":"HA heartbeat"},
+		{"id":"e7b","fromNode":"fgts","fromSide":"right","toNode":"fgts-ha","toSide":"left","color":"rgba(236, 72, 153, 0.5)","label":"HA heartbeat"},
+		{"id":"e8","fromNode":"ovs1","fromSide":"bottom","toNode":"lan1-clients","toSide":"top","color":"rgba(245, 158, 11, 0.4)"},
+		{"id":"e9","fromNode":"ovs2","fromSide":"bottom","toNode":"lan2-clients","toSide":"top","color":"rgba(14, 165, 233, 0.4)"},
+		{"id":"e10","fromNode":"oci","fromSide":"right","toNode":"internet","toSide":"left","color":"rgba(139, 92, 246, 0.4)","label":"IPsec VPN"},
+		{"id":"e11","fromNode":"ovs1","fromSide":"right","toNode":"router","toSide":"left","color":"rgba(168, 85, 247, 0.5)","label":"eth0 LAN1"},
+		{"id":"e12","fromNode":"ovs2","fromSide":"left","toNode":"router","toSide":"right","color":"rgba(168, 85, 247, 0.5)","label":"eth1 LAN2"},
+		{"id":"e13","fromNode":"router","fromSide":"top","toNode":"ssl-vpn","toSide":"bottom","color":"rgba(236, 72, 153, 0.3)","label":"SSL VPN clients"}
+	]
+}
