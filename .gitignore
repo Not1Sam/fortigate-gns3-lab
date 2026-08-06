@@ -5,12 +5,12 @@
 .obsidian/plugins/
 .obsidian/community-plugins.json
 
-# Large disk images (use Git LFS or download separately)
+# Rapport de stage (personal - compile locally)
+Rapport-de-Stage/
+
+# GNS3 disk images (too large for GitHub)
 *.qcow2
 *.img
-
-# Keep image directory structure
-!GNS3-Images/.gitkeep
 
 # LaTeX build files
 Rapport-de-Stage/*.aux
